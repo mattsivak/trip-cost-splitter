@@ -1,0 +1,109 @@
+# Trip Cost Splitter
+
+Work out who owes what for the fuel after a shared road trip.
+
+You lay out the route, say who was in the car for each stretch, and the app
+splits the fuel by the litres each person was actually there for. Everything
+stays in the browser.
+
+Live: <https://trips.mattsivak.me/>
+
+## How the split works
+
+Two ideas carry the whole app.
+
+**Litres are the fair-share basis.** A drive's fuel comes from its distance and
+the car's consumption; an idle stop's fuel is measured in litres directly.
+Either way a segment is just _some fuel plus the people who were there for it_,
+and that fuel is split evenly between them. Ride half the trip, pay for half the
+trip's fuel.
+
+**Receipts are the ground truth for money.** They are what actually left the
+driver's pocket. You can price the trip two ways:
+
+| Mode            | What it does                                                                                                           | When to use it                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `from-receipts` | Divides exactly the receipt total, in proportion to each person's litres. The price per litre is derived, not entered. | Normal case. Guarantees collected equals spent.   |
+| `fixed-price`   | You state a price per litre. Receipts become a cross-check, and the app reports the gap.                               | When you want to bill mileage at a standard rate. |
+
+Rounding lands on the driver: passengers pay whole units, and the driver pays
+whatever is left of the whole-unit trip total. The amount collected always
+equals the amount billed.
+
+All money is held as integers in minor units. Nothing is ever a float, so the
+per-person shares provably sum to the total — there is a test that hammers this
+across hundreds of awkward splits.
+
+## Running it
+
+```bash
+npm install
+npm run dev        # http://localhost:3000
+npm run verify     # lint, typecheck, tests
+npm run build && npm run preview
+```
+
+Verified on Node `v20.19.0`.
+
+## Routing
+
+Distances can be looked up from a list of stops. The provider lives behind an
+interface, and the browser never talks to it directly — it calls
+`/api/routing/geocode` and `/api/routing/route`, and Nitro talks to the
+provider. That is what keeps the API key server-side.
+
+| Provider             | Key needed     | Notes                                                                                            |
+| -------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
+| OSRM + OpenStreetMap | No             | The default. Works with zero configuration. Public demo servers, so rate-limited and unpromised. |
+| Mapy.com             | `MAPY_API_KEY` | Better for Czech and Central European addresses. Activates automatically when the key is set.    |
+
+Every looked-up distance is editable afterwards. The map is a starting point,
+not the last word.
+
+```bash
+cp .env.example .env   # MAPY_API_KEY is optional
+```
+
+## Storing and sharing
+
+Trips are saved in `localStorage` behind a `TripStore` interface whose methods
+are all async, so an HTTP-backed store can replace it without touching a single
+caller. Nothing is uploaded anywhere.
+
+A trip can be shared as a link that carries the whole trip in the URL fragment.
+Whoever opens it gets their own editable copy. The fragment is chosen over a
+query string deliberately: it holds people's names, and fragments do not reach
+server logs.
+
+## Layout
+
+```
+src/domain/          Framework-free. No Vue, no Nuxt, no network.
+  money/             Integer minor-unit arithmetic and exact allocation
+  trip/              Types, fuel, overhead, the calculator, the share message
+  routing/           Provider interface, OSRM, Mapy, segment mapping
+  storage/           TripStore interface, localStorage, URL codec
+src/fixtures/        The demo trip and the golden test
+server/api/routing/  Nitro endpoints; where the provider keys stay
+components/          The wizard steps and shared pieces
+composables/         Reactive glue between the domain and the pages
+pages/               Trip list, the wizard, the share-link importer
+```
+
+The domain has no imports from Nuxt or Vue, which is why it is the part with
+105 tests and no mocking.
+
+## The example trip
+
+`npm run dev`, then "Open the example trip". It is a real trip, and it is
+deliberately shown in `fixed-price` mode so the first thing you see is the app
+reporting that the receipts come to 2 528 Kč more than the mileage accounts
+for. Switch to "Price from the receipts" and the whole 6 893,73 Kč gets divided
+instead.
+
+## Known limits
+
+- The keyless OSRM and Nominatim endpoints are public demo servers. Set
+  `MAPY_API_KEY` for anything that needs to be reliable.
+- `npm audit` reports two dev-only advisories in the esbuild dev server, pinned
+  by the Vite version Nuxt depends on. Neither ships in the built output.

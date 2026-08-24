@@ -1,0 +1,19 @@
+services:
+  trip-cost-splitter:
+    image: trip-cost-splitter:latest
+    container_name: trip-cost-splitter
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: 3000
+      # Optional. Without it the app uses keyless OSRM/OpenStreetMap.
+      MAPY_API_KEY: ${MAPY_API_KEY:-}
+    ports:
+      - '127.0.0.1:3087:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:3000/ || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
