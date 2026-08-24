@@ -3,8 +3,9 @@
 Work out who owes what for the fuel after a shared road trip.
 
 You lay out the route, say who was in the car for each stretch, and the app
-splits the fuel by the litres each person was actually there for. Everything
-stays in the browser.
+splits the cost by how much fuel — or charge — each person was actually there
+for. Then you send everyone a link showing what they owe, with a payment
+button.
 
 Live: <https://trips.mattsivak.me/>
 
@@ -119,16 +120,60 @@ An inline script in the document head applies a stored choice before the first
 paint. Without it the page renders in the system theme and then flips, which is
 worse than having no toggle at all.
 
+## Settling up
+
+The last step turns the split into money actually moving.
+
+Add your Revolut handle and each person gets a payment link with their amount
+and currency already in it. The URL format — `revolut.me/<handle>/<amount><ccy>`
+— is the one in common use but is **not documented by Revolut**: their public
+docs cover Business payment links, a different product behind an API, and
+revolut.me serves the same page for every path so it cannot be probed. It is
+therefore isolated in `src/domain/settle/revolut.ts` behind one tested
+function, and the interface offers a link to open your own profile so you can
+check it before sending anything to eight people.
+
+Anyone can mark themselves paid from the shared link. That is a note between
+friends, taken on trust: the app cannot see a payment arrive and does not
+pretend to.
+
 ## Storing and sharing
 
-Trips are saved in `localStorage` behind a `TripStore` interface whose methods
-are all async, so an HTTP-backed store can replace it without touching a single
-caller. Nothing is uploaded anywhere.
+Trips live on the server, one JSON file each, because a shared link has to show
+the same thing to everyone and marking yourself paid has to be visible to the
+person collecting. **Names, amounts and who has paid are stored server-side** —
+this is no longer a browser-only app.
 
-A trip can be shared as a link that carries the whole trip in the URL fragment.
-Whoever opens it gets their own editable copy. The fragment is chosen over a
-query string deliberately: it holds people's names, and fragments do not reach
-server logs.
+Each trip has two keys:
+
+| Key  | Reaches                          | Who holds it                          |
+| ---- | -------------------------------- | ------------------------------------- |
+| view | Read the trip, mark someone paid | Everyone you send the payment link to |
+| edit | Everything, including delete     | Your browser only                     |
+
+There are no accounts, so the server cannot answer "list my trips" — it does
+not know who is asking. The browser keeps an index of the trips it made and the
+keys that open them; losing it loses your way back, exactly as losing the link
+would. Trips saved by the browser-only version are moved to the server the
+first time you open the list.
+
+Keys are 128 bits from the platform CSPRNG. A wrong key and a missing trip
+return the same 404, so the API cannot be used to discover which trips exist.
+The view key travels in the URL fragment, which never reaches a server log or a
+`Referer` header.
+
+Stored files carry a schema `version` so a later release can recognise and
+migrate them rather than guess.
+
+Two links come out of the Collect step: the **payment link**, which is
+read-only, and an **editable copy**, which carries the whole trip in the URL
+fragment and gives the recipient their own separate copy.
+
+### Where the data lives
+
+`.data/trips/` by default; set `TRIPS_DIR` to move it. That directory is the
+only thing that needs to survive a redeploy. There is no retention policy yet —
+trips stay until deleted.
 
 ## Layout
 
@@ -138,12 +183,14 @@ src/domain/          Framework-free. No Vue, no Nuxt, no network.
   trip/              Types, energy, overhead, the calculator, the share message
   pricing/           Energy kinds and units, and reading the price feed
   geo/               Working out a country from a request
+  settle/            Revolut payment links
   routing/           Provider interface, OSRM, Mapy, segment mapping
   storage/           TripStore interface, localStorage, URL codec
 src/fixtures/        The demo trip and the golden test
 e2e/                 Playwright specs for the browser-only behaviour
 server/api/routing/  Nitro endpoints; where the provider keys stay
 server/api/pricing/  The local price lookup, cached
+server/api/trips/    Trip storage and the two-key access model
 components/          The wizard steps and shared pieces
 composables/         Reactive glue between the domain and the pages
 pages/               Trip list, the wizard, the share-link importer

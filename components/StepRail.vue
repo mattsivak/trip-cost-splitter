@@ -12,6 +12,7 @@ const steps = [
   { name: 'People', hint: 'Who came along' },
   { name: 'Assign', hint: 'Who was in for each stretch' },
   { name: 'Split', hint: 'What everyone owes' },
+  { name: 'Collect', hint: 'Getting it back' },
 ]
 </script>
 

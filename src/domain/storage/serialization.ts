@@ -49,6 +49,9 @@ export function parseTrip(value: unknown): Trip | null {
     overheadCosts: asArray(value.overheadCosts).flatMap((cost) => parseOverhead(cost, knownPeople)),
     receipts: asArray(value.receipts).flatMap(parseReceipt),
     rounding: parseRounding(value.rounding),
+    paidAt: parsePaidAt(value.paidAt, knownPeople),
+    ...(str(value.currencyCode) ? { currencyCode: str(value.currencyCode).toUpperCase() } : {}),
+    ...(str(value.revolutHandle) ? { revolutHandle: str(value.revolutHandle) } : {}),
   }
 }
 
@@ -168,6 +171,16 @@ function parsePricing(value: unknown): Pricing {
 
   const source = parsePriceSource(isRecord(value) ? value.source : null)
   return source ? { ...pricing, source } : pricing
+}
+
+function parsePaidAt(value: unknown, knownPeople: ReadonlySet<string>): Record<string, string> {
+  if (!isRecord(value)) return {}
+
+  const paid: Record<string, string> = {}
+  for (const [personId, at] of Object.entries(value)) {
+    if (knownPeople.has(personId) && str(at)) paid[personId] = str(at)
+  }
+  return paid
 }
 
 function parsePriceSource(value: unknown): PriceSource | null {

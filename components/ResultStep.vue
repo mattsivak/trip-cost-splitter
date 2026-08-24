@@ -4,13 +4,12 @@ import { fromMajor, toMajor } from '~/src/domain/money/money'
 import { createOverhead, createReceipt } from '~/src/domain/trip/factories'
 import type { TripResult } from '~/src/domain/trip/result'
 import { formatTripSummary } from '~/src/domain/trip/summary'
-import { buildShareUrl } from '~/src/domain/storage/urlCodec'
 import type { Trip } from '~/src/domain/trip/types'
 
 const props = defineProps<{ trip: Trip; result: TripResult }>()
 
 const { money, exact } = useMoney(() => props.trip.currency)
-const copied = ref<'' | 'summary' | 'link'>('')
+const copied = ref(false)
 
 const summary = computed(() => formatTripSummary(props.trip, props.result))
 
@@ -36,14 +35,13 @@ function setAmount(item: { amount: number }, value: number) {
   item.amount = fromMajor(value)
 }
 
-async function copy(kind: 'summary' | 'link') {
-  const text = kind === 'summary' ? summary.value : buildShareUrl(window.location.origin, props.trip)
+async function copy() {
   try {
-    await navigator.clipboard.writeText(text)
-    copied.value = kind
-    setTimeout(() => (copied.value = ''), 1800)
+    await navigator.clipboard.writeText(summary.value)
+    copied.value = true
+    setTimeout(() => (copied.value = false), 1800)
   } catch {
-    copied.value = ''
+    copied.value = false
   }
 }
 </script>
@@ -181,7 +179,8 @@ async function copy(kind: 'summary' | 'link') {
                   <small>
                     {{ person.isDriver ? 'driver · ' : ''
                     }}{{ formatEnergy(person.energy, trip.energyKind) }} over
-                    {{ person.segmentIds.length }} parts
+                    {{ person.segmentIds.length }}
+                    {{ person.segmentIds.length === 1 ? 'part' : 'parts' }}
                   </small>
                 </span>
               </td>
@@ -252,14 +251,7 @@ async function copy(kind: 'summary' | 'link') {
       <div class="share">
         <div class="share__head">
           <h3>Message for the group chat</h3>
-          <div class="button-row">
-            <button type="button" class="button--quiet" @click="copy('link')">
-              {{ copied === 'link' ? 'Link copied' : 'Copy share link' }}
-            </button>
-            <button type="button" @click="copy('summary')">
-              {{ copied === 'summary' ? 'Copied' : 'Copy message' }}
-            </button>
-          </div>
+          <button type="button" @click="copy">{{ copied ? 'Copied' : 'Copy message' }}</button>
         </div>
         <pre>{{ summary }}</pre>
       </div>

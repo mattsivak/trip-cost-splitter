@@ -11,7 +11,11 @@ const loading = ref(true)
 
 onMounted(refresh)
 
+const moved = ref(0)
+
 async function refresh() {
+  // Trips made by the browser-only version are moved to the server once.
+  moved.value = await migrateLocalTrips()
   trips.value = await store.list()
   loading.value = false
 }
@@ -81,6 +85,10 @@ function when(iso: string): string {
       </div>
 
       <p v-if="loading" class="hint">Reading your trips…</p>
+      <p v-else-if="moved" class="hint">
+        Moved {{ moved }} {{ moved === 1 ? 'trip' : 'trips' }} from this browser onto the server, so they can
+        be shared.
+      </p>
 
       <div v-else-if="!trips.length" class="empty">
         <p>Nothing here yet.</p>

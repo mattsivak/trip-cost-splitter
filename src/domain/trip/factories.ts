@@ -35,6 +35,7 @@ export function createTrip(overrides: Partial<Trip> = {}): Trip {
     overheadCosts: [],
     receipts: [],
     rounding: 'nearest',
+    paidAt: {},
     ...overrides,
   }
 }

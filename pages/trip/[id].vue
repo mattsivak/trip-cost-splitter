@@ -46,11 +46,12 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · Trip Cost Splitter`
     <RouteStep v-if="step === 0" :trip="trip" />
     <PeopleStep v-else-if="step === 1" :trip="trip" />
     <AssignStep v-else-if="step === 2" :trip="trip" />
-    <ResultStep v-else :trip="trip" :result="result" />
+    <ResultStep v-else-if="step === 3" :trip="trip" :result="result" />
+    <CollectStep v-else :trip="trip" :result="result" />
 
     <div class="button-row" style="margin-top: 32px; justify-content: space-between">
       <button type="button" class="button--quiet" :disabled="step === 0" @click="step -= 1">Back</button>
-      <button v-if="step < 3" type="button" @click="step += 1">Next</button>
+      <button v-if="step < 4" type="button" @click="step += 1">Next</button>
     </div>
   </div>
 </template>

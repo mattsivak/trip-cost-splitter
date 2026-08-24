@@ -120,4 +120,16 @@ export interface Trip {
   overheadCosts: OverheadCost[]
   receipts: Receipt[]
   rounding: RoundingMode
+  /**
+   * ISO code behind `currency`, when we know it. `currency` is free text for
+   * display; this is what a payment link needs.
+   */
+  currencyCode?: string
+  /** Where people should send the money. */
+  revolutHandle?: string
+  /**
+   * Who has settled up, and when. Marked by hand and taken on trust — the app
+   * has no way to see a payment actually arrive, and does not pretend to.
+   */
+  paidAt: Record<PersonId, string>
 }

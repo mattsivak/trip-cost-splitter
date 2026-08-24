@@ -21,6 +21,10 @@ export function useTrip(tripId: MaybeRefOrGetter<string>) {
     status.value = loaded ? 'ready' : 'missing'
   }
 
+  // Longer than it was when this wrote to localStorage: each save is now a
+  // request, and nobody needs one per keystroke.
+  const SAVE_DELAY_MS = 800
+
   let saveTimer: ReturnType<typeof setTimeout> | undefined
 
   function saveNow() {
@@ -34,7 +38,7 @@ export function useTrip(tripId: MaybeRefOrGetter<string>) {
     () => {
       if (status.value !== 'ready' || !trip.value) return
       clearTimeout(saveTimer)
-      saveTimer = setTimeout(saveNow, 350)
+      saveTimer = setTimeout(saveNow, SAVE_DELAY_MS)
     },
     { deep: true },
   )

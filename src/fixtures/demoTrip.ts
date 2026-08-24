@@ -1,4 +1,5 @@
 import { fromMajor } from '../domain/money/money'
+import { createId } from '../domain/trip/factories'
 import type { Trip } from '../domain/trip/types'
 
 /**
@@ -21,7 +22,10 @@ import type { Trip } from '../domain/trip/types'
  */
 export function createDemoTrip(): Trip {
   return {
-    id: 'demo-volkswagen-august',
+    // A fresh id each time. With a fixed one, every person who opened the
+    // example on a shared server would write over the same trip and inherit
+    // somebody else's keys.
+    id: createId('demo'),
     title: 'Volkswagen August trip',
     currency: 'Kč',
     createdAt: '2025-08-24T00:00:00.000Z',
@@ -37,6 +41,8 @@ export function createDemoTrip(): Trip {
     energyKind: 'gasoline',
     consumptionPer100Km: 9.5,
     rounding: 'nearest',
+    currencyCode: 'CZK',
+    paidAt: {},
     driverId: 'matthew',
 
     people: [

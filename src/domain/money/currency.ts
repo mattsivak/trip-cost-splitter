@@ -25,3 +25,22 @@ export function currencySymbol(isoCode: string): string {
   const code = isoCode.trim().toUpperCase()
   return SYMBOLS[code] ?? code
 }
+
+/**
+ * Best guess at the ISO code behind a displayed currency.
+ *
+ * The trip's currency is free text, so this is only a guess and callers must
+ * cope with null — Revolut needs a real code, and inventing one would build a
+ * payment link that asks for the wrong money.
+ */
+export function currencyCodeFor(display: string): string | null {
+  const value = display.trim()
+  if (!value) return null
+
+  if (/^[A-Za-z]{3}$/.test(value)) return value.toUpperCase()
+
+  for (const [code, symbol] of Object.entries(SYMBOLS)) {
+    if (symbol.toLowerCase() === value.toLowerCase()) return code
+  }
+  return null
+}

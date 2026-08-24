@@ -25,6 +25,20 @@ export function decodeTripFromToken(token: string): Trip | null {
   }
 }
 
-export function buildShareUrl(origin: string, trip: Trip): string {
-  return `${origin.replace(/\/$/, '')}/trip/import#${encodeTripToToken(trip)}`
+/** A link that hands the recipient their own editable copy of the trip. */
+export function buildCopyUrl(origin: string, trip: Trip): string {
+  return `${base(origin)}/trip/import#${encodeTripToToken(trip)}`
+}
+
+/**
+ * A link to the trip as it stands on the server: amounts, payment links and
+ * the working, with no way to change any of it. The key rides in the fragment
+ * so it stays out of server logs and Referer headers.
+ */
+export function buildViewUrl(origin: string, tripId: string, viewKey: string): string {
+  return `${base(origin)}/view/${encodeURIComponent(tripId)}#${viewKey}`
+}
+
+function base(origin: string): string {
+  return origin.replace(/\/$/, '')
 }

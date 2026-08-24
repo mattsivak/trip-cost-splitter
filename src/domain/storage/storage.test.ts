@@ -4,7 +4,7 @@ import { createTrip } from '../trip/factories'
 import { makeDrive, makeIdle, makeTrip } from '../trip/testing'
 import { createLocalTripStore, createMemoryStorage, TRIP_KEY_PREFIX } from './localTripStore'
 import { parseTrip } from './serialization'
-import { buildShareUrl, decodeTripFromToken, encodeTripToToken } from './urlCodec'
+import { buildCopyUrl, buildViewUrl, decodeTripFromToken, encodeTripToToken } from './urlCodec'
 
 describe('parseTrip', () => {
   it('rejects anything that is not an object', () => {
@@ -150,9 +150,15 @@ describe('url sharing', () => {
   })
 
   it('puts the payload in the fragment, so it never reaches a server log', () => {
-    const url = buildShareUrl('https://trips.example.com/', trip)
+    const url = buildCopyUrl('https://trips.example.com/', trip)
     expect(url.startsWith('https://trips.example.com/trip/import#')).toBe(true)
     expect(url.split('#')[0]).not.toContain('Ann')
+  })
+
+  it('keeps the view key out of the path, for the same reason', () => {
+    const url = buildViewUrl('https://trips.example.com/', 'trip-1', 'k'.repeat(32))
+    expect(url).toBe(`https://trips.example.com/view/trip-1#${'k'.repeat(32)}`)
+    expect(url.split('#')[0]).not.toContain('k'.repeat(32))
   })
 })
 

@@ -4,6 +4,14 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   css: ['~/assets/main.css'],
 
+  // Trips live as one JSON file each. TRIPS_DIR moves that directory; it is
+  // the only thing that needs to survive a redeploy.
+  nitro: {
+    storage: {
+      trips: { driver: 'fs', base: process.env.TRIPS_DIR || './.data/trips' },
+    },
+  },
+
   runtimeConfig: {
     // Server-only. Absent means the app falls back to keyless OSRM.
     mapyApiKey: process.env.MAPY_API_KEY ?? '',
