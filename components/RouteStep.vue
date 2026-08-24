@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { insertAfter } from '~/src/domain/list'
 import { createDrive, createIdle, driveLabel } from '~/src/domain/trip/factories'
 import { litersForSegment } from '~/src/domain/trip/fuel'
 import { routeToSegments } from '~/src/domain/routing/routeToSegments'
@@ -66,21 +67,29 @@ function addDrive() {
   props.trip.segments.push(createDrive('', '', { occupantIds: driverOnly() }))
 }
 
-function addIdleStop(location = '') {
-  props.trip.segments.push(createIdle(location, { occupantIds: driverOnly() }))
+/**
+ * `afterIndex` puts the stop straight after the drive it belongs to. Without
+ * it the stop lands at the end of the route, which is not where it happened
+ * and would be split against the wrong people.
+ */
+function addIdleStop(location = '', afterIndex = -1) {
+  props.trip.segments = insertAfter(
+    props.trip.segments,
+    afterIndex,
+    createIdle(location, { occupantIds: driverOnly() }),
+  )
 }
 
 function remove(segmentId: string) {
   props.trip.segments = props.trip.segments.filter((segment) => segment.id !== segmentId)
 }
 
-function move(index: number, delta: number) {
-  const target = index + delta
-  const segments = props.trip.segments
-  if (target < 0 || target >= segments.length) return
-  const [moved] = segments.splice(index, 1)
-  if (moved) segments.splice(target, 0, moved)
-}
+const { draggingIndex, onDragStart, onDragOver, onDrop, endDrag, dropEdge, move } = useSegmentReorder(
+  () => props.trip.segments,
+  (segments) => {
+    props.trip.segments = segments
+  },
+)
 
 function relabel(segment: Trip['segments'][number]) {
   if (segment.kind === 'drive') segment.label = driveLabel(segment.from, segment.to)
@@ -138,6 +147,7 @@ function liters(segment: Trip['segments'][number]): number {
         <div>
           <p class="eyebrow">{{ trip.segments.length }} parts</p>
           <h2>The route, part by part</h2>
+          <p class="section__lede">Drag a part by its handle to reorder it, or use the arrows.</p>
         </div>
       </div>
 
@@ -152,9 +162,34 @@ function liters(segment: Trip['segments'][number]): number {
         v-for="(segment, index) in trip.segments"
         :key="segment.id"
         class="segment"
-        :class="{ 'segment--idle': segment.kind === 'idle' }"
+        :class="{
+          'segment--idle': segment.kind === 'idle',
+          'is-dragging': draggingIndex === index,
+          'is-drop-before': dropEdge(index) === 'before',
+          'is-drop-after': dropEdge(index) === 'after',
+        }"
+        @dragover="onDragOver(index, $event)"
+        @drop.prevent="onDrop(index)"
       >
         <div class="segment__head">
+          <span
+            class="grip"
+            draggable="true"
+            role="button"
+            tabindex="-1"
+            :aria-label="`Drag to reorder ${segment.label || 'this part'}`"
+            @dragstart="onDragStart(index, $event)"
+            @dragend="endDrag"
+          >
+            <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true" focusable="false">
+              <circle cx="2" cy="3" r="1.4" />
+              <circle cx="8" cy="3" r="1.4" />
+              <circle cx="2" cy="8" r="1.4" />
+              <circle cx="8" cy="8" r="1.4" />
+              <circle cx="2" cy="13" r="1.4" />
+              <circle cx="8" cy="13" r="1.4" />
+            </svg>
+          </span>
           <div class="segment__title">
             <h3>{{ segment.label || 'Untitled' }}</h3>
             <span class="segment__meta">
@@ -163,13 +198,20 @@ function liters(segment: Trip['segments'][number]): number {
             </span>
           </div>
           <div class="button-row">
-            <button type="button" class="button--danger" :disabled="index === 0" @click="move(index, -1)">
+            <button
+              type="button"
+              class="button--danger"
+              :disabled="index === 0"
+              :aria-label="`Move ${segment.label || 'this part'} earlier`"
+              @click="move(index, -1)"
+            >
               ↑
             </button>
             <button
               type="button"
               class="button--danger"
               :disabled="index === trip.segments.length - 1"
+              :aria-label="`Move ${segment.label || 'this part'} later`"
               @click="move(index, 1)"
             >
               ↓
@@ -219,7 +261,7 @@ function liters(segment: Trip['segments'][number]): number {
         </div>
 
         <div v-if="segment.kind === 'drive'" class="button-row">
-          <button type="button" class="button--quiet" @click="addIdleStop(segment.to)">
+          <button type="button" class="button--quiet" @click="addIdleStop(segment.to, index)">
             Add an idle stop after this
           </button>
         </div>
