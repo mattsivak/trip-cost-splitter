@@ -37,16 +37,16 @@ function whoWasOn(occupantIds: readonly string[]): string {
         </thead>
         <tbody>
           <tr v-for="segment in result.segments" :key="segment.segmentId">
-            <td>
+            <td class="is-rowhead">
               <span class="cell-name">
                 <strong>{{ segment.label }}</strong>
                 <small>{{ segment.kind === 'idle' ? 'idling' : 'drive' }}</small>
               </span>
             </td>
-            <td class="is-figure">{{ distanceFor(segment.segmentId) }}</td>
-            <td class="is-figure">{{ formatEnergy(segment.energy, trip.energyKind) }}</td>
-            <td>{{ whoWasOn(segment.occupantIds) }}</td>
-            <td class="is-figure">{{ exact(segment.costPerOccupant) }}</td>
+            <td class="is-figure" data-label="Distance">{{ distanceFor(segment.segmentId) }}</td>
+            <td class="is-figure" data-label="Used">{{ formatEnergy(segment.energy, trip.energyKind) }}</td>
+            <td data-label="Who was aboard">{{ whoWasOn(segment.occupantIds) }}</td>
+            <td class="is-figure" data-label="Each">{{ exact(segment.costPerOccupant) }}</td>
           </tr>
         </tbody>
       </table>
@@ -68,7 +68,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
             :key="person.personId"
             :class="{ 'is-driver': person.isDriver }"
           >
-            <td>
+            <td class="is-rowhead">
               <span class="cell-name">
                 <strong>{{ person.name }}</strong>
                 <small>{{
@@ -78,9 +78,9 @@ function whoWasOn(occupantIds: readonly string[]): string {
                 }}</small>
               </span>
             </td>
-            <td class="is-figure">{{ formatEnergy(person.energy, trip.energyKind) }}</td>
-            <td class="is-figure">{{ exact(person.exactTotal) }}</td>
-            <td class="is-figure">{{ money(person.payable) }}</td>
+            <td class="is-figure" data-label="Used">{{ formatEnergy(person.energy, trip.energyKind) }}</td>
+            <td class="is-figure" data-label="Exact">{{ exact(person.exactTotal) }}</td>
+            <td class="is-figure" data-label="Rounded">{{ money(person.payable) }}</td>
           </tr>
         </tbody>
       </table>
