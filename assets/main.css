@@ -1100,3 +1100,268 @@ details.working[open] > summary {
   font-family: var(--font-figure);
   color: var(--accent);
 }
+
+/* ================================================================
+ * Small screens
+ *
+ * The phone is where this app is actually used — someone works out
+ * the split standing at the pump, or reads their own line of it from
+ * a link in the group chat. Everything below is written for that,
+ * and gathered here so the narrow-screen story reads in one place.
+ * ================================================================ */
+
+/* A field wide enough to want the whole row on a laptop still wants
+ * the whole row on a phone — but it must not be the thing that forces
+ * a second column into existence and squeezes the selects. */
+.field--wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 560px) {
+  .field--wide {
+    grid-column: auto;
+  }
+  .field-row {
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  }
+}
+
+/* ---------- tables become receipts ----------
+ *
+ * Five columns of figures cannot be read on a 390px screen; scrolling
+ * a table sideways hides the column that matters and gives no sign it
+ * is there. So each row stops being a row and becomes what it always
+ * was on paper: a name, and the figures that belong to it, listed. */
+
+@media (max-width: 620px) {
+  .table-wrap {
+    overflow-x: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  table {
+    min-width: 0;
+    display: block;
+    font-size: 0.9rem;
+  }
+
+  /* The headers are not gone, they are carried by each cell's data-label. */
+  thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  tbody,
+  tfoot,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  tr {
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: calc(var(--step) * 3);
+  }
+
+  tr + tr,
+  tfoot tr {
+    margin-top: calc(var(--step) * 2.5);
+  }
+
+  /* The driver is the one person with a different relationship to the
+   * money, and keeps the rust edge that says so. */
+  tr.is-driver {
+    border-left: 3px solid var(--flag);
+  }
+
+  /* The name, at the top of its own block, with the figures under it. */
+  td.is-rowhead {
+    padding: 0 0 calc(var(--step) * 2);
+    margin-bottom: calc(var(--step) * 1);
+    border-bottom: 1px solid var(--rule-strong);
+    font-weight: 600;
+    text-align: left;
+  }
+
+  td:not(.is-rowhead) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: calc(var(--step) * 3);
+    padding: calc(var(--step) * 1.5) 0;
+    border-bottom: 1px dotted var(--rule);
+    text-align: right;
+  }
+
+  td:not(.is-rowhead)::before {
+    content: attr(data-label);
+    font-family: var(--font-figure);
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* The last figure in a block needs no rule under it; the card's own
+   * border already closes the block. */
+  tr td:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  /* The totals block is the summary of the ones above it, and says so
+   * with the heavier rule the table foot used to carry. */
+  tfoot tr {
+    border-top-width: 2px;
+    border-top-color: var(--rule-strong);
+  }
+
+  tfoot td {
+    border-top: 0;
+  }
+
+  /* The figure people came for stays the largest thing in the block. */
+  td .total {
+    font-size: 1.05rem;
+  }
+}
+
+/* ---------- touch ----------
+ *
+ * A finger is not a cursor. Everything you can press gets a 44px box,
+ * and every field gets a 16px face — under that, iOS zooms the page in
+ * on focus and the person has to pinch their way back out. */
+
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .input-prefix__fixed {
+    font-size: 16px;
+  }
+
+  button,
+  .pay-link,
+  .theme__option {
+    min-height: 44px;
+  }
+
+  .toggle {
+    min-height: 44px;
+    padding-left: calc(var(--step) * 3);
+    padding-right: calc(var(--step) * 3);
+  }
+
+  /* Remove / ↑ / ↓ keep their quiet size but not their quiet hitbox. */
+  .button--danger {
+    min-width: 44px;
+    padding-left: calc(var(--step) * 2);
+    padding-right: calc(var(--step) * 2);
+  }
+
+  details.working > summary {
+    padding: calc(var(--step) * 2) 0;
+  }
+
+  /* Native drag-and-drop does not exist on touch. The grip would be a
+   * handle that does nothing, so it goes, and the arrows do the work. */
+  .grip {
+    display: none;
+  }
+}
+
+/* ---------- masthead, rail and shell ---------- */
+
+@media (max-width: 560px) {
+  /* The strapline under the title, not squeezed into a column beside it. */
+  .masthead {
+    gap: calc(var(--step) * 2);
+  }
+
+  .masthead__mark {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: calc(var(--step) * 0.5);
+  }
+
+  /* Five steps over two columns leaves the fifth alone in a half-width
+   * cell, which reads as a mistake. It takes the whole last row. */
+  .rail__step:last-child {
+    grid-column: 1 / -1;
+    border-right: 0;
+  }
+
+  /* The head of a part card: the title above its controls, so neither
+   * has to survive on a third of the width. The controls sit tight under
+   * the title they belong to rather than floating between it and the
+   * fields, where they read as belonging to neither. */
+  .segment__head {
+    flex-wrap: wrap;
+    gap: calc(var(--step) * 1);
+  }
+
+  /* flex-basis, not width: the basis is what decides the wrap, so the title
+   * keeps the whole line above instead of being squeezed beside the buttons. */
+  .segment__head .button-row {
+    flex: 0 0 100%;
+    justify-content: flex-end;
+    gap: calc(var(--step) * 1);
+  }
+
+  /* The two figures in the readout sit one per line rather than
+   * clipping to an ellipsis. */
+  .readout {
+    padding: calc(var(--step) * 3.5) calc(var(--step) * 4);
+    gap: calc(var(--step) * 3.5);
+  }
+
+  .settle-row__amount {
+    text-align: left;
+  }
+}
+
+/* Notched phones in landscape put the shell under the rounded corner. */
+@supports (padding: max(0px)) {
+  .shell {
+    padding-left: max(calc(var(--step) * 5), env(safe-area-inset-left));
+    padding-right: max(calc(var(--step) * 5), env(safe-area-inset-right));
+  }
+
+  @media (max-width: 560px) {
+    .shell {
+      padding-left: max(calc(var(--step) * 3.5), env(safe-area-inset-left));
+      padding-right: max(calc(var(--step) * 3.5), env(safe-area-inset-right));
+    }
+  }
+}
+
+/* Copy that only holds where the input does. */
+.only-coarse {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .only-fine {
+    display: none;
+  }
+  .only-coarse {
+    display: inline;
+  }
+}

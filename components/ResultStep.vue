@@ -173,7 +173,7 @@ async function copy() {
               :key="person.personId"
               :class="{ 'is-driver': person.isDriver }"
             >
-              <td>
+              <td class="is-rowhead">
                 <span class="cell-name">
                   <strong>{{ person.name }}</strong>
                   <small>
@@ -184,21 +184,21 @@ async function copy() {
                   </small>
                 </span>
               </td>
-              <td class="is-figure">{{ exact(person.fuelShare) }}</td>
-              <td class="is-figure">{{ exact(person.overheadShare) }}</td>
-              <td class="is-figure">{{ exact(person.exactTotal) }}</td>
-              <td class="is-figure">
+              <td class="is-figure" data-label="Fuel">{{ exact(person.fuelShare) }}</td>
+              <td class="is-figure" data-label="Other">{{ exact(person.overheadShare) }}</td>
+              <td class="is-figure" data-label="Exact">{{ exact(person.exactTotal) }}</td>
+              <td class="is-figure" data-label="Owes">
                 <span class="total">{{ money(person.payable) }}</span>
               </td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
-              <td>Total</td>
-              <td class="is-figure">{{ exact(result.fuelTotal) }}</td>
-              <td class="is-figure">{{ exact(result.overheadTotal) }}</td>
-              <td class="is-figure">{{ exact(result.totalExact) }}</td>
-              <td class="is-figure">{{ money(result.totalPayable) }}</td>
+              <td class="is-rowhead">Total</td>
+              <td class="is-figure" data-label="Fuel">{{ exact(result.fuelTotal) }}</td>
+              <td class="is-figure" data-label="Other">{{ exact(result.overheadTotal) }}</td>
+              <td class="is-figure" data-label="Exact">{{ exact(result.totalExact) }}</td>
+              <td class="is-figure" data-label="Owes">{{ money(result.totalPayable) }}</td>
             </tr>
           </tfoot>
         </table>
@@ -227,17 +227,17 @@ async function copy() {
           </thead>
           <tbody>
             <tr v-for="segment in result.segments" :key="segment.segmentId">
-              <td>
+              <td class="is-rowhead">
                 <span class="cell-name">
                   <strong>{{ segment.label }}</strong>
                   <small>{{ segment.kind === 'idle' ? 'idling' : 'drive' }}</small>
                 </span>
               </td>
-              <td class="is-figure">{{ basisFor(segment.segmentId) }}</td>
-              <td class="is-figure">{{ formatEnergy(segment.energy, trip.energyKind) }}</td>
-              <td class="is-figure">{{ segment.occupantIds.length }}</td>
-              <td class="is-figure">{{ exact(segment.cost) }}</td>
-              <td class="is-figure">{{ exact(segment.costPerOccupant) }}</td>
+              <td class="is-figure" data-label="Basis">{{ basisFor(segment.segmentId) }}</td>
+              <td class="is-figure" data-label="Fuel">{{ formatEnergy(segment.energy, trip.energyKind) }}</td>
+              <td class="is-figure" data-label="People">{{ segment.occupantIds.length }}</td>
+              <td class="is-figure" data-label="Cost">{{ exact(segment.cost) }}</td>
+              <td class="is-figure" data-label="Each">{{ exact(segment.costPerOccupant) }}</td>
             </tr>
           </tbody>
         </table>

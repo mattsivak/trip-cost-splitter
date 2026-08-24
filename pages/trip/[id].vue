@@ -21,7 +21,7 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · Trip Cost Splitter`
 
   <div v-else>
     <div class="field-row" style="margin-bottom: 20px">
-      <label class="field" style="grid-column: span 2">
+      <label class="field field--wide">
         <span>Trip</span>
         <input v-model="trip.title" />
       </label>

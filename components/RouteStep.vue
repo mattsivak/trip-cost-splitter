@@ -125,7 +125,7 @@ function quantity(segment: Trip['segments'][number]): number {
       </div>
 
       <div class="field-row" style="align-items: end">
-        <label class="field" style="grid-column: span 2">
+        <label class="field field--wide">
           <span>Stops, one per line</span>
           <textarea v-model="stopsDraft" rows="6" placeholder="Šumperk&#10;Olomouc&#10;Milovice" />
         </label>
@@ -158,7 +158,11 @@ function quantity(segment: Trip['segments'][number]): number {
         <div>
           <p class="eyebrow">{{ trip.segments.length }} parts</p>
           <h2>The route, part by part</h2>
-          <p class="section__lede">Drag a part by its handle to reorder it, or use the arrows.</p>
+          <p class="section__lede">
+            <!-- The handle only exists where dragging does; on touch the arrows are the whole story. -->
+            <span class="only-fine">Drag a part by its handle to reorder it, or use the arrows.</span>
+            <span class="only-coarse">Use the arrows to reorder a part.</span>
+          </p>
         </div>
       </div>
 
