@@ -124,14 +124,22 @@ worse than having no toggle at all.
 
 The last step turns the split into money actually moving.
 
-Add your Revolut handle and each person gets a payment link with their amount
-and currency already in it. The URL format — `revolut.me/<handle>/<amount><ccy>`
-— is the one in common use but is **not documented by Revolut**: their public
-docs cover Business payment links, a different product behind an API, and
-revolut.me serves the same page for every path so it cannot be probed. It is
-therefore isolated in `src/domain/settle/revolut.ts` behind one tested
-function, and the interface offers a link to open your own profile so you can
-check it before sending anything to eight people.
+Add your Revolut handle and each person gets a payment link with their amount,
+currency and a note already in it:
+
+```
+https://revolut.me/mattsivak?currency=CZK&amount=12100&note=Janca%20-%20Alps
+```
+
+The amount is in **minor units** — 12100 is 121,00 CZK — which is the unit the
+rest of the app counts money in, so the split's figure goes straight through.
+
+Revolut does not document this format: their public docs cover Business payment
+links, a different product behind an API, and revolut.me serves the same page
+for every path so it cannot be probed. It is therefore isolated in
+`src/domain/settle/revolut.ts` behind one tested function, and the interface
+offers a link to open your own profile so you can check it before sending
+anything to eight people.
 
 The shared page names the account the money is going to, rather than hiding it
 inside a button, so nobody has to trust a link they cannot read.

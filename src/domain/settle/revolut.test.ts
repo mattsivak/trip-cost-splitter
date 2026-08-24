@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRevolutLink, normalizeRevolutHandle, revolutProfileUrl } from './revolut'
+import { buildRevolutLink, normalizeRevolutHandle, paymentNote, revolutProfileUrl } from './revolut'
 
 describe('normalizeRevolutHandle', () => {
   it('accepts a bare handle', () => {
@@ -32,38 +32,81 @@ describe('normalizeRevolutHandle', () => {
 })
 
 describe('buildRevolutLink', () => {
-  it('puts the amount and currency in the path', () => {
-    expect(buildRevolutLink('mattsivak', 804, 'CZK')).toBe('https://revolut.me/mattsivak/804czk')
+  it('builds the link Revolut expects', () => {
+    expect(buildRevolutLink('mattsivak', 12100, 'CZK', 'Janca - trip name')).toBe(
+      'https://revolut.me/mattsivak?currency=CZK&amount=12100&note=Janca%20-%20trip%20name',
+    )
   })
 
-  it('lower-cases the currency and tolerates padding', () => {
-    expect(buildRevolutLink('mattsivak', 12, ' EuR ')).toBe('https://revolut.me/mattsivak/12eur')
+  it('takes the amount in minor units, as the rest of the domain does', () => {
+    // 92300 is 923,00 Kč — the same integer the split produces.
+    expect(buildRevolutLink('mattsivak', 92300, 'CZK')).toBe(
+      'https://revolut.me/mattsivak?currency=CZK&amount=92300',
+    )
   })
 
-  it('writes whole amounts without decimals', () => {
-    expect(buildRevolutLink('mx', 450, 'czk')).toBe('https://revolut.me/mx/450czk')
+  it('upper-cases the currency and tolerates padding', () => {
+    expect(buildRevolutLink('mattsivak', 1200, ' eur ')).toBe(
+      'https://revolut.me/mattsivak?currency=EUR&amount=1200',
+    )
   })
 
-  it('writes fractional amounts with two decimals', () => {
-    expect(buildRevolutLink('mx', 12.5, 'eur')).toBe('https://revolut.me/mx/12.50eur')
-    expect(buildRevolutLink('mx', 12.345, 'eur')).toBe('https://revolut.me/mx/12.35eur')
+  it('escapes spaces as %20, not as plus', () => {
+    const link = buildRevolutLink('mattsivak', 100, 'CZK', 'Anet - Volkswagen August trip')
+    expect(link).toContain('note=Anet%20-%20Volkswagen%20August%20trip')
+    expect(link).not.toContain('+')
+  })
+
+  it('escapes characters that would otherwise break the query', () => {
+    const link = buildRevolutLink('mattsivak', 100, 'CZK', 'Anet & co #2 = trip')
+    expect(link).toContain('note=Anet%20%26%20co%20%232%20%3D%20trip')
+  })
+
+  it('survives a note with diacritics', () => {
+    const link = buildRevolutLink('mattsivak', 100, 'CZK', 'Janča - Šumperk')
+    expect(link).toContain('note=Jan%C4%8Da%20-%20%C5%A0umperk')
+  })
+
+  it('leaves the note out entirely when there is none', () => {
+    expect(buildRevolutLink('mattsivak', 100, 'CZK', '   ')).toBe(
+      'https://revolut.me/mattsivak?currency=CZK&amount=100',
+    )
+  })
+
+  it('caps an absurdly long note rather than bloating the link', () => {
+    const link = buildRevolutLink('mattsivak', 100, 'CZK', 'x'.repeat(500)) ?? ''
+    expect(link.length).toBeLessThan(200)
   })
 
   it('refuses to build a link it cannot get right', () => {
     // A link asking for the wrong amount is worse than no link at all.
-    expect(buildRevolutLink('', 10, 'czk')).toBeNull()
-    expect(buildRevolutLink('x', 10, 'czk')).toBeNull() // too short to be a handle
-    expect(buildRevolutLink('mx', 10, 'Kč')).toBeNull() // a symbol, not an ISO code
-    expect(buildRevolutLink('mx', 10, 'czech')).toBeNull()
-    expect(buildRevolutLink('mx', 0, 'czk')).toBeNull()
-    expect(buildRevolutLink('mx', -5, 'czk')).toBeNull()
-    expect(buildRevolutLink('mx', Number.NaN, 'czk')).toBeNull()
+    expect(buildRevolutLink('', 100, 'CZK')).toBeNull()
+    expect(buildRevolutLink('x', 100, 'CZK')).toBeNull() // too short to be a handle
+    expect(buildRevolutLink('mattsivak', 100, 'Kč')).toBeNull() // a symbol, not a code
+    expect(buildRevolutLink('mattsivak', 100, 'czech')).toBeNull()
+    expect(buildRevolutLink('mattsivak', 0, 'CZK')).toBeNull()
+    expect(buildRevolutLink('mattsivak', -500, 'CZK')).toBeNull()
+    expect(buildRevolutLink('mattsivak', Number.NaN, 'CZK')).toBeNull()
+    // Minor units are whole numbers; a fraction means somebody passed major units.
+    expect(buildRevolutLink('mattsivak', 12.5, 'CZK')).toBeNull()
   })
 
   it('normalizes a pasted URL before building on it', () => {
-    expect(buildRevolutLink('https://revolut.me/mattsivak/999eur', 804, 'czk')).toBe(
-      'https://revolut.me/mattsivak/804czk',
+    expect(buildRevolutLink('https://revolut.me/mattsivak', 12100, 'CZK')).toBe(
+      'https://revolut.me/mattsivak?currency=CZK&amount=12100',
     )
+  })
+})
+
+describe('paymentNote', () => {
+  it('names the person and the trip', () => {
+    expect(paymentNote('Janca', 'trip name')).toBe('Janca - trip name')
+  })
+
+  it('copes with either half being missing', () => {
+    expect(paymentNote('Janca', '')).toBe('Janca')
+    expect(paymentNote('', 'trip name')).toBe('trip name')
+    expect(paymentNote('  ', '  ')).toBe('')
   })
 })
 

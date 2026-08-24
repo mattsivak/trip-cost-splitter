@@ -49,7 +49,10 @@ test('the Revolut handle builds a payment link per person', async ({ page }) => 
 
   // Terka owes 804 Kč on the example trip.
   const pay = page.getByRole('link', { name: 'Pay 804 Kč' })
-  await expect(pay).toHaveAttribute('href', 'https://revolut.me/mattsivak/804czk')
+  await expect(pay).toHaveAttribute(
+    'href',
+    'https://revolut.me/mattsivak?currency=CZK&amount=80400&note=Terka%20-%20Volkswagen%20August%20trip',
+  )
 })
 
 test('the field holds the handle alone, and reduces a pasted link to it', async ({ page }) => {
@@ -192,7 +195,7 @@ test('a trip made from scratch gets payment buttons, not just the promise of the
   await expect(guest.getByRole('link', { name: /^Pay / })).toBeVisible()
   await expect(guest.getByRole('link', { name: /^Pay / }).first()).toHaveAttribute(
     'href',
-    /^https:\/\/revolut\.me\/mattsivak\/\d+czk$/,
+    /^https:\/\/revolut\.me\/mattsivak\?currency=CZK&amount=\d+&note=/,
   )
   await guest.close()
 })

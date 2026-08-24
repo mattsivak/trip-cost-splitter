@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { formatEnergy } from '~/src/domain/pricing/energyKind'
-import { toMajor } from '~/src/domain/money/money'
 import { canBuildPaymentLinks, paymentLinkFor } from '~/src/domain/settle/payment'
-import { normalizeRevolutHandle } from '~/src/domain/settle/revolut'
+import { normalizeRevolutHandle, paymentNote } from '~/src/domain/settle/revolut'
 import type { PersonBreakdown } from '~/src/domain/trip/result'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -39,7 +38,8 @@ function paidOn(personId: string): string {
 }
 
 function payLink(person: PersonBreakdown): string | null {
-  return paymentLinkFor(props.trip, toMajor(person.payable))
+  // payable is already minor units, which is what the link wants.
+  return paymentLinkFor(props.trip, person.payable, paymentNote(person.name, props.trip.title))
 }
 
 /** Guards the sentence about buttons, so it cannot promise ones that are absent. */

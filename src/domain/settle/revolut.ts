@@ -1,14 +1,15 @@
 /**
  * Revolut payment links.
  *
- * The format below — revolut.me/<handle>/<amount><currency> — is the one in
- * common use, but Revolut does not document it: their public docs cover
- * Business payment links, which are a different product behind an API, and
- * revolut.me serves the same page for every path so it cannot be probed.
+ *   https://revolut.me/<handle>?currency=CZK&amount=12100&note=Janca%20-%20Trip
  *
- * It is therefore isolated here, behind one function with tests, so that if it
- * turns out to be wrong there is exactly one place to fix. The interface
- * offers a way to test a link before anyone sends it to eight people.
+ * The amount is in minor units, so 12100 is 121,00 CZK — the same unit the
+ * rest of this app counts money in.
+ *
+ * Revolut does not document this: their public docs cover Business payment
+ * links, a different product behind an API, and revolut.me serves the same
+ * page for every path so it cannot be probed. It is therefore isolated here,
+ * behind one function with tests, so a correction has exactly one place to go.
  */
 
 const HOST = 'https://revolut.me'
@@ -39,26 +40,44 @@ export function revolutProfileUrl(handle: string): string | null {
   return name ? `${HOST}/${name}` : null
 }
 
+/** Long enough to say which trip; short enough not to bloat the link. */
+const MAX_NOTE = 100
+
 /**
- * A link that opens Revolut with the amount already filled in.
+ * A link that opens Revolut with the amount, currency and a note already
+ * filled in.
  *
- * Returns null rather than a half-built URL when anything is missing: a
- * payment link that quietly asks for the wrong amount is worse than no link.
+ * `amountMinor` is minor units, matching the rest of the domain. Returns null
+ * rather than a half-built URL when anything is missing: a payment link that
+ * quietly asks for the wrong amount is worse than no link at all.
  */
-export function buildRevolutLink(handle: string, amountMajor: number, currencyCode: string): string | null {
+export function buildRevolutLink(
+  handle: string,
+  amountMinor: number,
+  currencyCode: string,
+  note = '',
+): string | null {
   const name = normalizeRevolutHandle(handle)
   if (!name) return null
 
-  const code = currencyCode.trim().toLowerCase()
-  if (!/^[a-z]{3}$/.test(code)) return null
+  const code = currencyCode.trim().toUpperCase()
+  if (!/^[A-Z]{3}$/.test(code)) return null
 
-  if (!Number.isFinite(amountMajor) || amountMajor <= 0) return null
+  if (!Number.isInteger(amountMinor) || amountMinor <= 0) return null
 
-  return `${HOST}/${name}/${formatAmount(amountMajor)}${code}`
+  const query = [`currency=${code}`, `amount=${amountMinor}`]
+
+  const trimmed = note.trim().slice(0, MAX_NOTE).trim()
+  // encodeURIComponent, not URLSearchParams: the latter writes spaces as '+'.
+  if (trimmed) query.push(`note=${encodeURIComponent(trimmed)}`)
+
+  return `${HOST}/${name}?${query.join('&')}`
 }
 
-/** Whole units where possible, two decimals otherwise, never a trailing dot. */
-function formatAmount(amountMajor: number): string {
-  const rounded = Math.round(amountMajor * 100) / 100
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2)
+/** The note people see on the request: who it is for, and which trip. */
+export function paymentNote(personName: string, tripTitle: string): string {
+  const person = personName.trim()
+  const title = tripTitle.trim()
+  if (person && title) return `${person} - ${title}`
+  return person || title
 }

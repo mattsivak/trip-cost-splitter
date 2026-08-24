@@ -48,25 +48,25 @@ describe('canBuildPaymentLinks', () => {
       makeTrip({ currency: 'shells', revolutHandle: 'mattsivak' }),
       makeTrip({ currency: '€', currencyCode: 'EUR', revolutHandle: '@matt' }),
     ]) {
-      expect(canBuildPaymentLinks(trip)).toBe(paymentLinkFor(trip, 100) !== null)
+      expect(canBuildPaymentLinks(trip)).toBe(paymentLinkFor(trip, 10000) !== null)
     }
   })
 })
 
 describe('paymentLinkFor', () => {
   it('builds a link for a trip that only ever had a symbol', () => {
-    expect(paymentLinkFor(makeTrip({ currency: 'Kč', revolutHandle: 'mattsivak' }), 923)).toBe(
-      'https://revolut.me/mattsivak/923czk',
-    )
+    expect(
+      paymentLinkFor(makeTrip({ currency: 'Kč', revolutHandle: 'mattsivak' }), 92300, 'Terka - Alps'),
+    ).toBe('https://revolut.me/mattsivak?currency=CZK&amount=92300&note=Terka%20-%20Alps')
   })
 
   it('prefers the stored code over the symbol', () => {
     const trip = makeTrip({ currency: 'kr', currencyCode: 'NOK', revolutHandle: 'mattsivak' })
-    expect(paymentLinkFor(trip, 50)).toBe('https://revolut.me/mattsivak/50nok')
+    expect(paymentLinkFor(trip, 5000)).toBe('https://revolut.me/mattsivak?currency=NOK&amount=5000')
   })
 
   it('returns null when there is nothing to build from', () => {
-    expect(paymentLinkFor(makeTrip({ currency: 'Kč' }), 100)).toBeNull()
-    expect(paymentLinkFor(makeTrip({ currency: 'shells', revolutHandle: 'm' }), 100)).toBeNull()
+    expect(paymentLinkFor(makeTrip({ currency: 'Kč' }), 10000)).toBeNull()
+    expect(paymentLinkFor(makeTrip({ currency: 'shells', revolutHandle: 'mattsivak' }), 10000)).toBeNull()
   })
 })

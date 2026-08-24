@@ -23,11 +23,14 @@ export function paymentCurrencyCode(trip: PayableTrip): string | null {
  * ends up promising a button it cannot render.
  */
 export function canBuildPaymentLinks(trip: PayableTrip): boolean {
-  return Boolean(trip.revolutHandle && normalizeRevolutHandle(trip.revolutHandle) && paymentCurrencyCode(trip))
+  return Boolean(
+    trip.revolutHandle && normalizeRevolutHandle(trip.revolutHandle) && paymentCurrencyCode(trip),
+  )
 }
 
-export function paymentLinkFor(trip: PayableTrip, amountMajor: number): string | null {
+/** `amountMinor` matches the rest of the domain: integer minor units. */
+export function paymentLinkFor(trip: PayableTrip, amountMinor: number, note = ''): string | null {
   const code = paymentCurrencyCode(trip)
   if (!trip.revolutHandle || !code) return null
-  return buildRevolutLink(trip.revolutHandle, amountMajor, code)
+  return buildRevolutLink(trip.revolutHandle, amountMinor, code, note)
 }
