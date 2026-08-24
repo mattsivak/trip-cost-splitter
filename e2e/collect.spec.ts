@@ -44,12 +44,37 @@ test('a trip is saved on the server, so it survives the browser forgetting nothi
 test('the Revolut handle builds a payment link per person', async ({ page }) => {
   await openDemoAtCollect(page)
 
-  await page.getByLabel('Your Revolut handle').fill('https://revolut.me/mattsivak')
+  await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await expect(page.getByRole('link', { name: /Open https:\/\/revolut\.me\/mattsivak/ })).toBeVisible()
 
   // Terka owes 804 Kč on the example trip.
   const pay = page.getByRole('link', { name: 'Pay 804 Kč' })
   await expect(pay).toHaveAttribute('href', 'https://revolut.me/mattsivak/804czk')
+})
+
+test('the field holds the handle alone, and reduces a pasted link to it', async ({ page }) => {
+  await openDemoAtCollect(page)
+
+  const field = page.getByLabel('Your Revolut handle')
+  await expect(page.getByText('revolut.me/', { exact: true })).toBeVisible()
+
+  // People paste the whole link; it should collapse to just the handle.
+  await field.fill('https://revolut.me/mattsivak')
+  await expect(field).toHaveValue('mattsivak')
+
+  await field.fill('@mattsivak')
+  await expect(field).toHaveValue('mattsivak')
+
+  await field.fill('revolut.me/mattsivak/999eur')
+  await expect(field).toHaveValue('mattsivak')
+})
+
+test('typing a handle with a dot is not mangled mid-keystroke', async ({ page }) => {
+  await openDemoAtCollect(page)
+
+  const field = page.getByLabel('Your Revolut handle')
+  await field.pressSequentially('matt.sivak')
+  await expect(field).toHaveValue('matt.sivak')
 })
 
 test('a bad handle is refused rather than turned into a broken link', async ({ page }) => {
@@ -76,6 +101,10 @@ test('the payment link shows amounts and the working, and cannot edit the trip',
 
   await expect(page.getByRole('link', { name: 'Pay 804 Kč' })).toBeVisible()
 
+  // The destination is spelled out, not only hidden inside a button.
+  await expect(page.getByRole('link', { name: 'revolut.me/mattsivak' })).toBeVisible()
+  await expect(page.getByText('Money goes to Matthew')).toBeVisible()
+
   await page.getByRole('group', { name: 'Colour theme' }).waitFor()
   await page.getByText('How this was worked out').click()
   await expect(page.getByRole('cell', { name: 'Šumperk → Olomouc' })).toBeVisible()
@@ -95,6 +124,30 @@ test('marking yourself paid on the shared link is visible to the collector', asy
   await page.goto(tripUrl)
   await page.getByRole('button', { name: 'Collect' }).click()
   await expect(page.locator('.settle-row', { hasText: 'Terka' }).getByText(/✓ paid/)).toBeVisible()
+  await guest.close()
+})
+
+test('a collector with the trip open cannot wipe a mark made on the link', async ({ page, context }) => {
+  await openDemoAtCollect(page)
+  const link = await paymentLink(page)
+  const tripUrl = page.url()
+
+  // The collector edits something, so an autosave of the whole trip is pending.
+  await page.getByRole('button', { name: 'Split' }).click()
+  await page.getByLabel('Kč per L').fill('44')
+
+  const guest = await context.newPage()
+  await guest.goto(link)
+  await guest.locator('.settle-row', { hasText: 'Anet' }).getByRole('button', { name: 'Mark paid' }).click()
+  await expect(guest.locator('.settle-row', { hasText: 'Anet' }).getByText(/✓ paid/)).toBeVisible()
+
+  // Let the collector's autosave land, then check it did not overwrite the mark.
+  await page.waitForResponse(
+    (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
+  )
+  await page.goto(tripUrl)
+  await page.getByRole('button', { name: 'Collect' }).click()
+  await expect(page.locator('.settle-row', { hasText: 'Anet' }).getByText(/✓ paid/)).toBeVisible()
   await guest.close()
 })
 

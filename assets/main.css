@@ -1044,3 +1044,59 @@ details.working[open] > summary {
   font-size: 0.65rem;
   color: var(--ink-faint);
 }
+
+/* ---------- input with a fixed prefix ---------- */
+
+.input-prefix {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.input-prefix__fixed {
+  display: flex;
+  align-items: center;
+  padding: 0 calc(var(--step) * 2);
+  border-right: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-faint);
+  font-family: var(--font-figure);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.input-prefix input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  min-width: 0;
+}
+
+.input-prefix:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.input-prefix input:focus-visible {
+  outline: none;
+}
+
+.payee {
+  padding: calc(var(--step) * 3);
+  margin-bottom: calc(var(--step) * 3);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--accent-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.payee a {
+  font-family: var(--font-figure);
+  color: var(--accent);
+}

@@ -20,6 +20,24 @@ const handle = computed({
   },
 })
 
+/**
+ * The field holds the handle alone; `revolut.me/` is printed beside it.
+ *
+ * People paste the whole link anyway, so anything with a slash, an @ or a
+ * scheme in it is reduced to the handle as it lands. Plain typing is left
+ * alone — collapsing on every keystroke would fight anyone typing a dot.
+ */
+function tidyIfPasted() {
+  if (!/[/@:]/.test(handle.value)) return
+  const tidied = normalizeRevolutHandle(handle.value)
+  if (tidied) handle.value = tidied
+}
+
+function tidyOnBlur() {
+  const tidied = normalizeRevolutHandle(handle.value)
+  if (tidied) handle.value = tidied
+}
+
 const handleOk = computed(() => normalizeRevolutHandle(handle.value) !== null)
 const profileUrl = computed(() => revolutProfileUrl(handle.value))
 
@@ -53,16 +71,27 @@ async function copy(which: 'view' | 'copy') {
   }
 }
 
-function withoutPerson(paidAt: Record<string, string>, personId: string): Record<string, string> {
-  return Object.fromEntries(Object.entries(paidAt).filter(([id]) => id !== personId))
-}
-
+/**
+ * Marking paid goes through the endpoint even here, so there is exactly one
+ * writer for that field. Editing the trip locally and letting autosave carry
+ * it would race with anyone marking themselves paid from the shared link.
+ */
 async function togglePaid(personId: string, paid: boolean) {
+  const keys = store.keysFor(props.trip.id)
+  if (!keys) return
+
   busyPersonId.value = personId
-  props.trip.paidAt = paid
-    ? { ...props.trip.paidAt, [personId]: new Date().toISOString() }
-    : withoutPerson(props.trip.paidAt, personId)
-  busyPersonId.value = null
+  try {
+    const answer = await $fetch<{ paidAt: Record<string, string> }>(
+      `/api/trips/${encodeURIComponent(props.trip.id)}/paid` as string,
+      { method: 'POST', body: { key: keys.editKey, personId, paid } },
+    )
+    props.trip.paidAt = answer.paidAt
+  } catch {
+    // Leave the row as it was; the next click can try again.
+  } finally {
+    busyPersonId.value = null
+  }
 }
 </script>
 
@@ -83,7 +112,19 @@ async function togglePaid(personId: string, paid: boolean) {
       <div class="field-row" style="max-width: 620px">
         <label class="field">
           <span>Your Revolut handle</span>
-          <input v-model="handle" placeholder="revolut.me/yourname" spellcheck="false" />
+          <div class="input-prefix">
+            <span class="input-prefix__fixed">revolut.me/</span>
+            <input
+              v-model="handle"
+              aria-label="Your Revolut handle"
+              placeholder="yourname"
+              spellcheck="false"
+              autocapitalize="off"
+              autocorrect="off"
+              @input="tidyIfPasted"
+              @blur="tidyOnBlur"
+            />
+          </div>
         </label>
         <label class="field" style="max-width: 140px">
           <span>Currency code</span>

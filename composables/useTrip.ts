@@ -14,11 +14,17 @@ export function useTrip(tripId: MaybeRefOrGetter<string>) {
 
   const result = computed(() => (trip.value ? calculateTrip(trip.value) : null))
 
+  /** Set while a load is settling, so hydration does not look like an edit. */
+  let hydrating = false
+
   async function load() {
     status.value = 'loading'
+    hydrating = true
     const loaded = await store.load(toValue(tripId))
     trip.value = loaded
     status.value = loaded ? 'ready' : 'missing'
+    await nextTick()
+    hydrating = false
   }
 
   // Longer than it was when this wrote to localStorage: each save is now a
@@ -36,7 +42,7 @@ export function useTrip(tripId: MaybeRefOrGetter<string>) {
   watch(
     trip,
     () => {
-      if (status.value !== 'ready' || !trip.value) return
+      if (hydrating || status.value !== 'ready' || !trip.value) return
       clearTimeout(saveTimer)
       saveTimer = setTimeout(saveNow, SAVE_DELAY_MS)
     },

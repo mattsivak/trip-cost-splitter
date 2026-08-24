@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatEnergy } from '~/src/domain/pricing/energyKind'
 import { toMajor } from '~/src/domain/money/money'
-import { buildRevolutLink } from '~/src/domain/settle/revolut'
+import { buildRevolutLink, normalizeRevolutHandle } from '~/src/domain/settle/revolut'
 import type { PersonBreakdown } from '~/src/domain/trip/result'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -42,6 +42,14 @@ function payLink(person: PersonBreakdown): string | null {
   return buildRevolutLink(props.trip.revolutHandle, toMajor(person.payable), props.trip.currencyCode)
 }
 
+const driver = computed(() => props.people.find((person) => person.isDriver))
+
+/** The account the money is going to, spelled out rather than hidden in a button. */
+const payee = computed(() => {
+  const handle = props.trip.revolutHandle ? normalizeRevolutHandle(props.trip.revolutHandle) : null
+  return handle ? { handle, url: `https://revolut.me/${handle}` } : null
+})
+
 const outstanding = computed(() =>
   owing.value
     .filter((person) => !props.trip.paidAt[person.personId])
@@ -51,6 +59,12 @@ const outstanding = computed(() =>
 
 <template>
   <div>
+    <p v-if="payee" class="payee">
+      Money goes to <strong>{{ driver?.name ?? 'the driver' }}</strong> at
+      <a :href="payee.url" target="_blank" rel="noopener noreferrer">revolut.me/{{ payee.handle }}</a
+      >. Each button below opens Revolut with that person's amount already filled in.
+    </p>
+
     <div v-if="!owing.length" class="empty"><p>Nothing to collect.</p></div>
 
     <div v-else>

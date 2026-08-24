@@ -133,9 +133,14 @@ therefore isolated in `src/domain/settle/revolut.ts` behind one tested
 function, and the interface offers a link to open your own profile so you can
 check it before sending anything to eight people.
 
+The shared page names the account the money is going to, rather than hiding it
+inside a button, so nobody has to trust a link they cannot read.
+
 Anyone can mark themselves paid from the shared link. That is a note between
 friends, taken on trust: the app cannot see a payment arrive and does not
-pretend to.
+pretend to. `paidAt` has exactly one writer — its own endpoint — so a collector
+with the trip open cannot overwrite a mark made on somebody's phone the next
+time autosave runs.
 
 ## Storing and sharing
 
