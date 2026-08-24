@@ -1,4 +1,5 @@
 import { formatMoney } from '../money/money'
+import { formatEnergy } from '../pricing/energyKind'
 import type { TripResult } from './result'
 import type { Trip } from './types'
 
@@ -15,7 +16,7 @@ export function formatTripSummary(trip: Trip, result: TripResult): string {
   const lines: string[] = [
     `${trip.title} — fuel split`,
     '',
-    `${round1(result.totalDistanceKm)} km · ${round1(result.totalLiters)} L · ${formatMoney(result.totalExact, trip.currency)} total`,
+    `${round1(result.totalDistanceKm)} km · ${formatEnergy(result.totalEnergy, trip.energyKind)} · ${formatMoney(result.totalExact, trip.currency)} total`,
   ]
 
   if (result.overheadTotal > 0) {

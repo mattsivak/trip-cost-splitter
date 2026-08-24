@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { createDemoTrip } from '~/src/fixtures/demoTrip'
+import { currencySymbol } from '~/src/domain/money/currency'
 import { createTrip } from '~/src/domain/trip/factories'
 import type { TripSummary } from '~/src/domain/storage/tripStore'
 
@@ -15,9 +16,31 @@ async function refresh() {
   loading.value = false
 }
 
+const starting = ref(false)
+
 async function startTrip() {
-  const trip = await store.save(createTrip({ title: 'New trip' }))
-  await router.push(`/trip/${trip.id}`)
+  starting.value = true
+  const trip = createTrip({ title: 'New trip' })
+
+  // Price and currency are applied together or not at all: a euro figure under
+  // a Kč label would be worse than no figure.
+  const { price } = await fetchLocalPrice(trip.energyKind)
+  if (price) {
+    trip.pricing = {
+      mode: 'fixed-price',
+      pricePerUnit: priceToMoney(price),
+      source: {
+        countryName: price.countryName,
+        fetchedAt: price.fetchedAt,
+        convertedFromGallons: price.convertedFromGallons,
+      },
+    }
+    trip.currency = currencySymbol(price.currency)
+  }
+
+  const saved = await store.save(trip)
+  starting.value = false
+  await router.push(`/trip/${saved.id}`)
 }
 
 async function loadDemo() {
@@ -51,7 +74,9 @@ function when(iso: string): string {
           </p>
         </div>
         <div v-if="trips.length" class="button-row">
-          <button type="button" @click="startTrip">Start a trip</button>
+          <button type="button" :disabled="starting" @click="startTrip">
+            {{ starting ? 'Starting…' : 'Start a trip' }}
+          </button>
         </div>
       </div>
 
@@ -60,7 +85,9 @@ function when(iso: string): string {
       <div v-else-if="!trips.length" class="empty">
         <p>Nothing here yet.</p>
         <div class="button-row">
-          <button type="button" @click="startTrip">Start a trip</button>
+          <button type="button" :disabled="starting" @click="startTrip">
+            {{ starting ? 'Starting…' : 'Start a trip' }}
+          </button>
           <button type="button" class="button--quiet" @click="loadDemo">Open the example trip</button>
         </div>
       </div>

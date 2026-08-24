@@ -16,7 +16,7 @@ function drive(from: string, to: string): DriveSegment {
 }
 
 function idle(id: string, location = ''): IdleSegment {
-  return { kind: 'idle', id, label: `Waiting at ${location}`, location, liters: 5, occupantIds: [] }
+  return { kind: 'idle', id, label: `Waiting at ${location}`, location, energy: 5, occupantIds: [] }
 }
 
 const labels = (segments: Segment[]) => segments.map((segment) => segment.id)

@@ -62,6 +62,29 @@ node .output/server/index.mjs   # honours NITRO_HOST, NITRO_PORT and PORT
 
 Set `MAPY_API_KEY` in the environment if you want the Mapy.com provider.
 
+## The starting price
+
+A new trip opens priced per unit, prefilled from the local pump price.
+
+The country comes from the request, never from the browser's geolocation API —
+nobody gets a permission prompt for a fuel price. A CDN header (`cf-ipcountry`
+and friends) is used when there is one; only without it does the address leave
+the server for a lookup, and only public addresses are looked up at all, since
+a LAN address never resolves.
+
+Prices come from [openvan.camp](https://openvan.camp/en/developers) — free, no
+key, 142 countries, weekly from official sources including the EU Weekly Oil
+Bulletin and the EIA. Ten of those countries publish per gallon, which is
+converted. The price and the currency are applied together or not at all, and
+the field says where the number came from until you type over it.
+
+Electric trips are deliberately left blank: charging prices vary far more by
+where you plug in than by which country you are in, and a national average
+would be confidently wrong for most people.
+
+None of this blocks anything. If the lookup is slow, broken or unsure of the
+country, the trip opens at zero and the app simply asks for a price.
+
 ## Routing
 
 Distances can be looked up from a list of stops. The provider lives behind an
@@ -97,12 +120,15 @@ server logs.
 ```
 src/domain/          Framework-free. No Vue, no Nuxt, no network.
   money/             Integer minor-unit arithmetic and exact allocation
-  trip/              Types, fuel, overhead, the calculator, the share message
+  trip/              Types, energy, overhead, the calculator, the share message
+  pricing/           Energy kinds and units, and reading the price feed
+  geo/               Working out a country from a request
   routing/           Provider interface, OSRM, Mapy, segment mapping
   storage/           TripStore interface, localStorage, URL codec
 src/fixtures/        The demo trip and the golden test
 e2e/                 Playwright specs for the browser-only behaviour
 server/api/routing/  Nitro endpoints; where the provider keys stay
+server/api/pricing/  The local price lookup, cached
 components/          The wizard steps and shared pieces
 composables/         Reactive glue between the domain and the pages
 pages/               Trip list, the wizard, the share-link importer

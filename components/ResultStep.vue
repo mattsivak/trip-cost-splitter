@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatEnergy } from '~/src/domain/pricing/energyKind'
 import { fromMajor, toMajor } from '~/src/domain/money/money'
 import { createOverhead, createReceipt } from '~/src/domain/trip/factories'
 import type { TripResult } from '~/src/domain/trip/result'
@@ -13,24 +14,17 @@ const copied = ref<'' | 'summary' | 'link'>('')
 
 const summary = computed(() => formatTripSummary(props.trip, props.result))
 
-const priceMajor = computed({
-  get: () => (props.trip.pricing.mode === 'fixed-price' ? toMajor(props.trip.pricing.pricePerLiter) : 0),
-  set: (value: number) => {
-    props.trip.pricing = { mode: 'fixed-price', pricePerLiter: fromMajor(value) }
-  },
-})
-
 function setMode(mode: Trip['pricing']['mode']) {
-  props.trip.pricing =
-    mode === 'from-receipts' ? { mode } : { mode: 'fixed-price', pricePerLiter: fromMajor(40) }
+  props.trip.pricing = mode === 'from-receipts' ? { mode } : { mode: 'fixed-price', pricePerUnit: 0 }
 }
 
 /** What the split was measured from, in the same units the rest of the page uses. */
 function basisFor(segmentId: string): string {
   const segment = props.trip.segments.find((entry) => entry.id === segmentId)
   if (!segment) return ''
-  if (segment.kind === 'idle') return `${formatLiters(segment.liters)} parked`
-  if (segment.directLiters !== undefined) return `${formatLiters(segment.directLiters)} measured`
+  if (segment.kind === 'idle') return `${formatEnergy(segment.energy, props.trip.energyKind)} parked`
+  if (segment.directEnergy !== undefined)
+    return `${formatEnergy(segment.directEnergy, props.trip.energyKind)} measured`
   return formatKm(segment.distanceKm)
 }
 
@@ -88,11 +82,9 @@ async function copy(kind: 'summary' | 'link') {
           />
           <span>Set a price per litre</span>
         </label>
-        <label v-if="trip.pricing.mode === 'fixed-price'" class="field" style="max-width: 160px">
-          <span>{{ trip.currency }} per litre</span>
-          <input v-model.number="priceMajor" type="number" min="0" step="0.1" />
-        </label>
       </div>
+
+      <EnergyPrice :trip="trip" />
 
       <div class="field-row">
         <div class="stack stack--tight">
@@ -187,7 +179,8 @@ async function copy(kind: 'summary' | 'link') {
                 <span class="cell-name">
                   <strong>{{ person.name }}</strong>
                   <small>
-                    {{ person.isDriver ? 'driver · ' : '' }}{{ formatLiters(person.liters) }} over
+                    {{ person.isDriver ? 'driver · ' : ''
+                    }}{{ formatEnergy(person.energy, trip.energyKind) }} over
                     {{ person.segmentIds.length }} parts
                   </small>
                 </span>
@@ -242,7 +235,7 @@ async function copy(kind: 'summary' | 'link') {
                 </span>
               </td>
               <td class="is-figure">{{ basisFor(segment.segmentId) }}</td>
-              <td class="is-figure">{{ formatLiters(segment.liters) }}</td>
+              <td class="is-figure">{{ formatEnergy(segment.energy, trip.energyKind) }}</td>
               <td class="is-figure">{{ segment.occupantIds.length }}</td>
               <td class="is-figure">{{ exact(segment.cost) }}</td>
               <td class="is-figure">{{ exact(segment.costPerOccupant) }}</td>

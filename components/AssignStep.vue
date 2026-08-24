@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { litersForSegment } from '~/src/domain/trip/fuel'
+import { formatEnergy } from '~/src/domain/pricing/energyKind'
+import { energyForSegment } from '~/src/domain/trip/energy'
 import type { PersonId, Segment, Trip } from '~/src/domain/trip/types'
 
 const props = defineProps<{ trip: Trip }>()
@@ -23,23 +24,23 @@ function applyToRest(index: number) {
 }
 
 function slicesFor(segment: Segment) {
-  const liters = litersForSegment(segment, props.trip)
+  const quantity = energyForSegment(segment, props.trip)
   const occupants = segment.occupantIds.filter((id) => props.trip.people.some((person) => person.id === id))
-  const share = occupants.length ? liters / occupants.length : 0
+  const share = occupants.length ? quantity / occupants.length : 0
 
   return occupants.flatMap((personId) => {
     const person = props.trip.people.find((entry) => entry.id === personId)
     if (!person) return []
-    return [{ id: person.id, name: person.name, liters: share, isDriver: person.id === props.trip.driverId }]
+    return [{ id: person.id, name: person.name, energy: share, isDriver: person.id === props.trip.driverId }]
   })
 }
 
 function shareLabels(segment: Segment): Record<PersonId, string> {
-  const liters = litersForSegment(segment, props.trip)
+  const quantity = energyForSegment(segment, props.trip)
   const count = segment.occupantIds.length
   if (!count) return {}
 
-  const each = formatLiters(liters / count)
+  const each = formatEnergy(quantity / count, props.trip.energyKind)
   return Object.fromEntries(segment.occupantIds.map((personId) => [personId, each]))
 }
 </script>
@@ -72,12 +73,17 @@ function shareLabels(segment: Segment): Record<PersonId, string> {
           <h3>{{ segment.label || 'Untitled' }}</h3>
           <span class="segment__meta">
             {{ segment.kind === 'drive' ? formatKm(segment.distanceKm) : 'idling' }} ·
-            {{ formatLiters(litersForSegment(segment, trip)) }} · {{ segment.occupantIds.length }} assigned
+            {{ formatEnergy(energyForSegment(segment, trip), trip.energyKind) }} ·
+            {{ segment.occupantIds.length }} assigned
           </span>
         </div>
       </div>
 
-      <LitreBar :slices="slicesFor(segment)" empty-label="Nobody assigned — this falls to the driver" />
+      <LitreBar
+        :slices="slicesFor(segment)"
+        :energy-kind="trip.energyKind"
+        empty-label="Nobody assigned — this falls to the driver"
+      />
 
       <OccupantToggles
         :people="trip.people"

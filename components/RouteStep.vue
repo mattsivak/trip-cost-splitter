@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { consumptionLabelFor, formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
 import { insertAfter } from '~/src/domain/list'
 import { createDrive, createIdle, driveLabel } from '~/src/domain/trip/factories'
-import { litersForSegment } from '~/src/domain/trip/fuel'
+import { energyForSegment } from '~/src/domain/trip/energy'
 import { routeToSegments } from '~/src/domain/routing/routeToSegments'
 import { reanchorIdleStops } from '~/src/domain/trip/reanchorIdleStops'
 import type { GeoPoint } from '~/src/domain/routing/types'
@@ -104,8 +105,8 @@ function relabel(segment: Trip['segments'][number]) {
   if (segment.kind === 'drive') segment.label = driveLabel(segment.from, segment.to)
 }
 
-function liters(segment: Trip['segments'][number]): number {
-  return litersForSegment(segment, props.trip)
+function quantity(segment: Trip['segments'][number]): number {
+  return energyForSegment(segment, props.trip)
 }
 </script>
 
@@ -130,10 +131,11 @@ function liters(segment: Trip['segments'][number]): number {
         </label>
         <div class="stack stack--tight">
           <label class="field">
-            <span>Consumption L/100 km</span>
-            <input v-model.number="trip.defaultConsumptionLPer100Km" type="number" min="0" step="0.1" />
+            <span>Consumption {{ consumptionLabelFor(trip.energyKind) }}</span>
+            <input v-model.number="trip.consumptionPer100Km" type="number" min="0" step="0.1" />
           </label>
           <p class="hint">Used for any drive without its own figure.</p>
+          <EnergyPrice :trip="trip" show-mode-note />
         </div>
       </div>
 
@@ -203,7 +205,7 @@ function liters(segment: Trip['segments'][number]): number {
             <h3>{{ segment.label || 'Untitled' }}</h3>
             <span class="segment__meta">
               {{ segment.kind === 'drive' ? segment.distanceSource : 'measured' }} ·
-              {{ formatLiters(liters(segment)) }}
+              {{ formatEnergy(quantity(segment), trip.energyKind) }}
             </span>
           </div>
           <div class="button-row">
@@ -245,11 +247,11 @@ function liters(segment: Trip['segments'][number]): number {
           <label class="field">
             <span>Consumption</span>
             <input
-              v-model.number="segment.consumptionLPer100Km"
+              v-model.number="segment.consumptionPer100Km"
               type="number"
               min="0"
               step="0.1"
-              :placeholder="String(trip.defaultConsumptionLPer100Km)"
+              :placeholder="String(trip.consumptionPer100Km)"
             />
           </label>
         </div>
@@ -264,8 +266,8 @@ function liters(segment: Trip['segments'][number]): number {
             <input v-model="segment.location" />
           </label>
           <label class="field">
-            <span>Litres burned</span>
-            <input v-model.number="segment.liters" type="number" min="0" step="0.1" />
+            <span>{{ unitLabelFor(trip.energyKind) }} used</span>
+            <input v-model.number="segment.energy" type="number" min="0" step="0.1" />
           </label>
         </div>
 

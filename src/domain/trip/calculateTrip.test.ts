@@ -7,8 +7,8 @@ describe('fixed-price mode', () => {
   it('charges litres at the stated price', () => {
     const result = calculateTrip(
       makeTrip({
-        pricing: { mode: 'fixed-price', pricePerLiter: fromMajor(43) },
-        defaultConsumptionLPer100Km: 10,
+        pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(43) },
+        consumptionPer100Km: 10,
         segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
       }),
     )
@@ -31,18 +31,27 @@ describe('fixed-price mode', () => {
     expect(result.warnings.some((warning) => warning.includes('driver'))).toBe(true)
   })
 
-  it('warns when no price is set', () => {
+  it("warns when no price is set, naming the trip's own unit", () => {
     const result = calculateTrip(
-      makeTrip({ pricing: { mode: 'fixed-price', pricePerLiter: 0 }, segments: [makeDrive()] }),
+      makeTrip({ pricing: { mode: 'fixed-price', pricePerUnit: 0 }, segments: [makeDrive()] }),
     )
-    expect(result.warnings).toContain('Set a fuel price per litre.')
+    expect(result.warnings).toContain('Set a price per L.')
+
+    const electric = calculateTrip(
+      makeTrip({
+        pricing: { mode: 'fixed-price', pricePerUnit: 0 },
+        energyKind: 'electric',
+        segments: [makeDrive()],
+      }),
+    )
+    expect(electric.warnings).toContain('Set a price per kWh.')
   })
 })
 
 describe('from-receipts mode', () => {
   const trip = makeTrip({
     pricing: { mode: 'from-receipts' },
-    defaultConsumptionLPer100Km: 10,
+    consumptionPer100Km: 10,
     segments: [
       makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo'] }),
       makeDrive({ id: 'd2', distanceKm: 100, occupantIds: ['ann'] }),
@@ -59,7 +68,7 @@ describe('from-receipts mode', () => {
   it('derives the price per litre instead of taking it as input', () => {
     const result = calculateTrip(trip)
     // 20 L total for 900 Kč.
-    expect(toMajor(result.derivedPricePerLiter)).toBe(45)
+    expect(toMajor(result.derivedPricePerUnit)).toBe(45)
   })
 
   it('splits in proportion to litres burned per person', () => {
@@ -81,7 +90,7 @@ describe('reconciliation', () => {
     segments: [
       makeDrive({ id: 'd1', distanceKm: 33.3, occupantIds: ['ann', 'bo', 'cy'] }),
       makeDrive({ id: 'd2', distanceKm: 77.7, occupantIds: ['ann', 'cy'] }),
-      makeIdle({ id: 'i1', liters: 7, occupantIds: ['bo', 'cy'] }),
+      makeIdle({ id: 'i1', energy: 7, occupantIds: ['bo', 'cy'] }),
     ],
     overheadCosts: [{ id: 'o1', label: 'Tolls', amount: fromMajor(100), allocation: { type: 'even' } }],
     receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(1234.57) }],

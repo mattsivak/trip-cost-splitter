@@ -17,7 +17,7 @@ export function useRouting() {
     busy.value = true
     error.value = ''
     try {
-      return await $fetch<T>(path, { method: 'POST', body })
+      return (await $fetch<T>(path, { method: 'POST', body })) as T
     } catch (caught) {
       error.value = messageFrom(caught)
       return null

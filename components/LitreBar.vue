@@ -1,16 +1,18 @@
 <script setup lang="ts">
+import { formatEnergy, type EnergyKind } from '~/src/domain/pricing/energyKind'
 /**
- * The signature element: one segment's fuel, drawn as the people sharing it.
+ * The signature element: one segment's energy, drawn as the people sharing it.
  * Toggling somebody on or off visibly re-cuts the bar, which is the whole
  * argument the app is making — a share is a slice of the fuel you were there
  * for, not an abstract number in a table.
  */
 const props = defineProps<{
-  slices: Array<{ id: string; name: string; liters: number; isDriver: boolean }>
+  slices: Array<{ id: string; name: string; energy: number; isDriver: boolean }>
+  energyKind: EnergyKind
   emptyLabel?: string
 }>()
 
-const total = computed(() => props.slices.reduce((sum, slice) => sum + slice.liters, 0))
+const total = computed(() => props.slices.reduce((sum, slice) => sum + slice.energy, 0))
 </script>
 
 <template>
@@ -32,8 +34,8 @@ const total = computed(() => props.slices.reduce((sum, slice) => sum + slice.lit
       :key="slice.id"
       class="litrebar__slice"
       :class="{ 'litrebar__slice--driver': slice.isDriver }"
-      :style="{ flexGrow: slice.liters }"
-      :title="`${slice.name} · ${formatLiters(slice.liters)}`"
+      :style="{ flexGrow: slice.energy }"
+      :title="`${slice.name} · ${formatEnergy(slice.energy, energyKind)}`"
     >
       {{ slice.name }}
     </span>

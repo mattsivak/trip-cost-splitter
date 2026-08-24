@@ -15,7 +15,7 @@ describe('the Volkswagen trip, at a fixed pump price', () => {
   it('derives the fuel from the route, not from stated costs', () => {
     expect(result.totalDistanceKm).toBeCloseTo(793.3, 1)
     // 793.3 km at 9.5 L/100km, plus the 20 L canister.
-    expect(result.totalLiters).toBeCloseTo(95.3635, 4)
+    expect(result.totalEnergy).toBeCloseTo(95.3635, 4)
     expect(toMajor(result.fuelTotal)).toBe(4100.63)
   })
 
@@ -58,7 +58,7 @@ describe('the same trip, priced from the receipts', () => {
     // 6 893,73 Kč of fuel against 95,4 L of mileage. Either the van drank
     // more than 9,5 L/100 km or the tank did not start empty — either way,
     // the app now says so instead of hiding it.
-    expect(toMajor(result.derivedPricePerLiter)).toBe(72.29)
+    expect(toMajor(result.derivedPricePerUnit)).toBe(72.29)
   })
 
   it('splits the full amount as follows', () => {

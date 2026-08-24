@@ -1,0 +1,114 @@
+<script setup lang="ts">
+import { currencySymbol } from '~/src/domain/money/currency'
+import { fromMajor, toMajor } from '~/src/domain/money/money'
+import {
+  canLookUpPrice,
+  ENERGY_KINDS,
+  ENERGY_KIND_LABELS,
+  isEnergyKind,
+  unitLabelFor,
+} from '~/src/domain/pricing/energyKind'
+import type { Trip } from '~/src/domain/trip/types'
+
+/**
+ * What the car runs on and what that costs.
+ *
+ * Shared between the route step and the split step: the unit belongs next to
+ * the consumption figure, and the price belongs next to the receipts, but they
+ * are one decision and must not drift apart.
+ */
+const props = defineProps<{ trip: Trip; showModeNote?: boolean }>()
+
+const unit = computed(() => unitLabelFor(props.trip.energyKind))
+const lookingUp = ref(false)
+
+const options = ENERGY_KINDS.map((kind) => ({ kind, label: ENERGY_KIND_LABELS[kind] }))
+
+const priceMajor = computed({
+  get: () => (props.trip.pricing.mode === 'fixed-price' ? toMajor(props.trip.pricing.pricePerUnit) : 0),
+  set: (value: number) => {
+    // A typed-over price is the user's own, so the feed's provenance no longer
+    // describes it and is dropped rather than left to mislead.
+    props.trip.pricing = { mode: 'fixed-price', pricePerUnit: fromMajor(value) }
+  },
+})
+
+const source = computed(() =>
+  props.trip.pricing.mode === 'fixed-price' ? props.trip.pricing.source : undefined,
+)
+
+const provenance = computed(() => {
+  const from = source.value
+  if (!from) return ''
+
+  const parts = [from.countryName, ENERGY_KIND_LABELS[props.trip.energyKind].toLowerCase()]
+  if (from.convertedFromGallons) parts.push('converted from gallons')
+
+  const day = from.fetchedAt ? new Date(from.fetchedAt) : null
+  if (day && !Number.isNaN(day.getTime())) {
+    parts.push(day.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))
+  }
+  return parts.join(' · ')
+})
+
+async function changeEnergyKind(value: string) {
+  if (!isEnergyKind(value) || value === props.trip.energyKind) return
+  props.trip.energyKind = value
+
+  if (props.trip.pricing.mode !== 'fixed-price') return
+  if (!canLookUpPrice(value)) {
+    props.trip.pricing = { mode: 'fixed-price', pricePerUnit: 0 }
+    return
+  }
+
+  lookingUp.value = true
+  const { price } = await fetchLocalPrice(value)
+  lookingUp.value = false
+  if (!price || props.trip.pricing.mode !== 'fixed-price') return
+
+  props.trip.pricing = {
+    mode: 'fixed-price',
+    pricePerUnit: priceToMoney(price),
+    source: {
+      countryName: price.countryName,
+      fetchedAt: price.fetchedAt,
+      convertedFromGallons: price.convertedFromGallons,
+    },
+  }
+  props.trip.currency = currencySymbol(price.currency)
+}
+</script>
+
+<template>
+  <div class="stack stack--tight">
+    <div class="field-row">
+      <label class="field">
+        <span>Runs on</span>
+        <select
+          :value="trip.energyKind"
+          @change="changeEnergyKind(($event.target as HTMLSelectElement).value)"
+        >
+          <option v-for="option in options" :key="option.kind" :value="option.kind">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
+
+      <label v-if="trip.pricing.mode === 'fixed-price'" class="field">
+        <span>{{ trip.currency }} per {{ unit }}</span>
+        <input v-model.number="priceMajor" type="number" min="0" step="0.1" />
+      </label>
+    </div>
+
+    <p v-if="trip.pricing.mode !== 'fixed-price'" class="hint">
+      Priced from the receipts, so there is no price to set. Change that in step 4.
+    </p>
+    <p v-else-if="lookingUp" class="hint">Looking up the local price…</p>
+    <p v-else-if="!canLookUpPrice(trip.energyKind)" class="hint">
+      Charging prices vary more by where you plug in than by which country you are in — a fast charger is
+      often three times the price of charging at home — so this one is left for you to fill in.
+    </p>
+    <p v-else-if="provenance" class="hint">Local pump price · {{ provenance }}. Edit it if yours differed.</p>
+    <p v-else-if="showModeNote" class="hint">Or price the whole trip from the receipts, in step 4.</p>
+  </div>
+</template>

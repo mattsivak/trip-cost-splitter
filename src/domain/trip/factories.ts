@@ -23,8 +23,11 @@ export function createTrip(overrides: Partial<Trip> = {}): Trip {
     currency: 'Kč',
     createdAt: timestamp,
     updatedAt: timestamp,
-    pricing: { mode: 'from-receipts' },
-    defaultConsumptionLPer100Km: 7,
+    // Fixed price by default, prefilled from the local pump price where we can
+    // work out the country. `from-receipts` is the deliberate alternative.
+    pricing: { mode: 'fixed-price', pricePerUnit: 0 },
+    energyKind: 'gasoline',
+    consumptionPer100Km: 7,
     driverId: null,
     people: [],
     routePoints: [],
@@ -60,7 +63,7 @@ export function createIdle(location = '', overrides: Partial<IdleSegment> = {}):
     id: createId('idle'),
     label: location ? `Waiting at ${location}` : 'Waiting',
     location,
-    liters: 0,
+    energy: 0,
     occupantIds: [],
     ...overrides,
   }

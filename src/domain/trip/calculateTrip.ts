@@ -1,5 +1,6 @@
 import { allocate, roundToMajor, sumMoney, type Money } from '../money/money'
-import { litersForSegment, totalDistanceKm } from './fuel'
+import { unitLabelFor } from '../pricing/energyKind'
+import { energyForSegment, totalDistanceKm } from './energy'
 import { allocateOverhead } from './overhead'
 import type { PersonBreakdown, SegmentBreakdown, TripResult } from './result'
 import type { PersonId, Trip } from './types'
@@ -8,7 +9,7 @@ import type { PersonId, Trip } from './types'
 interface Claim {
   segmentIndex: number
   personId: PersonId
-  liters: number
+  energy: number
 }
 
 export function calculateTrip(trip: Trip): TripResult {
@@ -19,8 +20,8 @@ export function calculateTrip(trip: Trip): TripResult {
   if (trip.driverId && !driver) warnings.push('The selected driver is no longer on the trip.')
   if (!driver) warnings.push('No driver is set, so nobody is collecting the money.')
 
-  const segmentLiters = trip.segments.map((segment) => litersForSegment(segment, trip))
-  const litersTotal = segmentLiters.reduce((sum, liters) => sum + liters, 0)
+  const segmentEnergy = trip.segments.map((segment) => energyForSegment(segment, trip))
+  const energyTotal = segmentEnergy.reduce((sum, energy) => sum + energy, 0)
 
   // Build every (segment, person) stake up front. Allocating the money across
   // these once — rather than per segment and again per person — is what makes
@@ -29,11 +30,11 @@ export function calculateTrip(trip: Trip): TripResult {
   const occupantsBySegment: PersonId[][] = []
 
   trip.segments.forEach((segment, index) => {
-    const liters = segmentLiters[index] ?? 0
+    const energy = segmentEnergy[index] ?? 0
     const occupants = dedupe(segment.occupantIds.filter((personId) => known.has(personId)))
 
     if (occupants.length === 0) {
-      if (liters > 0) {
+      if (energy > 0) {
         if (driver) {
           // Fuel nobody rode for is still fuel the driver bought.
           occupants.push(driver.id)
@@ -45,14 +46,14 @@ export function calculateTrip(trip: Trip): TripResult {
     }
 
     occupantsBySegment[index] = occupants
-    const perOccupant = occupants.length > 0 ? liters / occupants.length : 0
-    for (const personId of occupants) claims.push({ segmentIndex: index, personId, liters: perOccupant })
+    const perOccupant = occupants.length > 0 ? energy / occupants.length : 0
+    for (const personId of occupants) claims.push({ segmentIndex: index, personId, energy: perOccupant })
   })
 
-  const fuelPool = resolveFuelPool(trip, litersTotal, warnings)
+  const fuelPool = resolveFuelPool(trip, energyTotal, warnings)
   const claimAmounts = allocate(
     fuelPool,
-    claims.map((claim) => claim.liters),
+    claims.map((claim) => claim.energy),
   )
   const fuelTotal = sumMoney(claimAmounts)
 
@@ -61,14 +62,14 @@ export function calculateTrip(trip: Trip): TripResult {
   }
 
   const fuelByPerson = new Map<PersonId, Money>()
-  const litersByPerson = new Map<PersonId, number>()
+  const energyByPerson = new Map<PersonId, number>()
   const segmentIdsByPerson = new Map<PersonId, Set<string>>()
   const sharesBySegment: Array<Record<PersonId, Money>> = trip.segments.map(() => ({}))
 
   claims.forEach((claim, index) => {
     const amount = claimAmounts[index] ?? 0
     fuelByPerson.set(claim.personId, (fuelByPerson.get(claim.personId) ?? 0) + amount)
-    litersByPerson.set(claim.personId, (litersByPerson.get(claim.personId) ?? 0) + claim.liters)
+    energyByPerson.set(claim.personId, (energyByPerson.get(claim.personId) ?? 0) + claim.energy)
 
     const segmentShares = sharesBySegment[claim.segmentIndex]
     if (segmentShares) segmentShares[claim.personId] = (segmentShares[claim.personId] ?? 0) + amount
@@ -111,7 +112,7 @@ export function calculateTrip(trip: Trip): TripResult {
     personId: person.id,
     name: person.name,
     isDriver: person.id === driver?.id,
-    liters: litersByPerson.get(person.id) ?? 0,
+    energy: energyByPerson.get(person.id) ?? 0,
     fuelShare: fuelByPerson.get(person.id) ?? 0,
     overheadShare: overheadByPerson.get(person.id) ?? 0,
     exactTotal: exactByPerson[index] ?? 0,
@@ -122,14 +123,14 @@ export function calculateTrip(trip: Trip): TripResult {
   const segments: SegmentBreakdown[] = trip.segments.map((segment, index) => {
     const shares = sharesBySegment[index] ?? {}
     const occupants = occupantsBySegment[index] ?? []
-    const liters = segmentLiters[index] ?? 0
+    const energy = segmentEnergy[index] ?? 0
     const cost = sumMoney(Object.values(shares))
     return {
       segmentId: segment.id,
       label: segment.label,
       kind: segment.kind,
-      liters,
-      litersPerOccupant: occupants.length > 0 ? liters / occupants.length : 0,
+      energy,
+      energyPerOccupant: occupants.length > 0 ? energy / occupants.length : 0,
       occupantIds: occupants,
       cost,
       costPerOccupant: occupants.length > 0 ? Math.round(cost / occupants.length) : 0,
@@ -139,21 +140,24 @@ export function calculateTrip(trip: Trip): TripResult {
 
   const receiptsTotal = sumMoney(trip.receipts.map((receipt) => receipt.amount))
   const receiptsDelta = trip.pricing.mode === 'from-receipts' ? 0 : receiptsTotal - fuelTotal
-  if (Math.abs(receiptsDelta) >= 100) {
+  // With no receipts there is nothing to reconcile against, so saying the
+  // charge exceeds them is noise on every new trip. The delta itself stays
+  // truthful; only the warning waits until there is something to compare with.
+  if (trip.receipts.length > 0 && Math.abs(receiptsDelta) >= 100) {
     warnings.push(
       receiptsDelta > 0
-        ? 'The receipts are larger than the fuel being charged out. The difference is coming out of the driver’s pocket.'
-        : 'The fuel being charged out is larger than the receipts on file.',
+        ? 'The receipts are larger than the energy being charged out. The difference is coming out of the driver’s pocket.'
+        : 'The energy being charged out is larger than the receipts on file.',
     )
   }
 
   const totalPayable = sumMoney(payables)
 
   return {
-    totalLiters: litersTotal,
+    totalEnergy: energyTotal,
     totalDistanceKm: totalDistanceKm(trip),
     fuelTotal,
-    derivedPricePerLiter: litersTotal > 0 ? Math.round(fuelTotal / litersTotal) : 0,
+    derivedPricePerUnit: energyTotal > 0 ? Math.round(fuelTotal / energyTotal) : 0,
     overheadTotal,
     receiptsTotal,
     receiptsDelta,
@@ -168,18 +172,18 @@ export function calculateTrip(trip: Trip): TripResult {
   }
 }
 
-function resolveFuelPool(trip: Trip, litersTotal: number, warnings: string[]): Money {
+function resolveFuelPool(trip: Trip, energyTotal: number, warnings: string[]): Money {
   if (trip.pricing.mode === 'from-receipts') {
     const receipts = sumMoney(trip.receipts.map((receipt) => receipt.amount))
     if (receipts === 0)
-      warnings.push('Add a receipt — the price per litre is derived from what was actually spent.')
-    if (litersTotal === 0 && receipts !== 0)
+      warnings.push('Add a receipt — the price per unit is derived from what was actually spent.')
+    if (energyTotal === 0 && receipts !== 0)
       warnings.push('There are receipts but no fuel used, so nothing can be split.')
-    return litersTotal > 0 ? receipts : 0
+    return energyTotal > 0 ? receipts : 0
   }
 
-  if (trip.pricing.pricePerLiter <= 0) warnings.push('Set a fuel price per litre.')
-  return Math.round(litersTotal * trip.pricing.pricePerLiter)
+  if (trip.pricing.pricePerUnit <= 0) warnings.push(`Set a price per ${unitLabelFor(trip.energyKind)}.`)
+  return Math.round(energyTotal * trip.pricing.pricePerUnit)
 }
 
 function dedupe<T>(values: readonly T[]): T[] {

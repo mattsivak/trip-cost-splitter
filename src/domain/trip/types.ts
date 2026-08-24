@@ -1,3 +1,4 @@
+import type { EnergyKind } from '../pricing/energyKind'
 import type { Money, RoundingMode } from '../money/money'
 
 export type PersonId = string
@@ -36,23 +37,26 @@ export interface DriveSegment extends SegmentBase {
   distanceKm: number
   durationSeconds?: number
   /** Overrides the trip default for this stretch only. */
-  consumptionLPer100Km?: number
-  /** A measured litre figure, which wins over the distance calculation. */
-  directLiters?: number
+  consumptionPer100Km?: number
+  /** A measured quantity, which wins over the distance calculation. */
+  directEnergy?: number
   distanceSource: DistanceSource
   geometry?: string
 }
 
-/** Fuel burned while parked, idling or waiting. Measured, not derived. */
+/**
+ * Energy used while parked, idling or waiting. Measured, not derived.
+ * For an electric car this is the cabin heating that runs while you wait.
+ */
 export interface IdleSegment extends SegmentBase {
   kind: 'idle'
   location?: string
-  liters: number
+  energy: number
 }
 
 /**
  * Drives and idle stops are the same thing to the splitter: a quantity of
- * fuel plus the people who were there for it. Keeping them in one union is
+ * energy plus the people who were there for it. Keeping them in one union is
  * what lets the calculator have a single code path.
  */
 export type Segment = DriveSegment | IdleSegment
@@ -80,9 +84,20 @@ export interface Receipt {
   notes?: string
 }
 
+/**
+ * Where a prefilled price came from. Kept so the interface can say so, and
+ * dropped the moment somebody types over the price — at which point it is
+ * their number, not the feed's.
+ */
+export interface PriceSource {
+  countryName: string
+  fetchedAt: string
+  convertedFromGallons: boolean
+}
+
 export type Pricing =
-  /** The user states a price per litre; receipts are only a cross-check. */
-  | { mode: 'fixed-price'; pricePerLiter: Money }
+  /** The user states a price per unit; receipts are only a cross-check. */
+  | { mode: 'fixed-price'; pricePerUnit: Money; source?: PriceSource }
   /** The price is whatever the receipts imply. Guarantees collected == spent. */
   | { mode: 'from-receipts' }
 
@@ -93,7 +108,10 @@ export interface Trip {
   createdAt: string
   updatedAt: string
   pricing: Pricing
-  defaultConsumptionLPer100Km: number
+  /** What the car runs on. Decides the unit and whether a price can be looked up. */
+  energyKind: EnergyKind
+  /** Per 100 km, in whatever unit `energyKind` implies. */
+  consumptionPer100Km: number
   /** Exactly one driver, or none. Not a flag on Person, which allowed two. */
   driverId: PersonId | null
   people: Person[]

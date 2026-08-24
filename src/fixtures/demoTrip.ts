@@ -30,8 +30,12 @@ export function createDemoTrip(): Trip {
     // Fixed price on purpose: at the real pump price the receipts come to far
     // more than the mileage accounts for, and the app should say so out loud.
     // Switch to `from-receipts` to see the whole 6 893,73 Kč divided instead.
-    pricing: { mode: 'fixed-price', pricePerLiter: fromMajor(43) },
-    defaultConsumptionLPer100Km: 9.5,
+    pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(43) },
+    // Whether the van ran on petrol or diesel is not recorded. It changes
+    // nothing here: the unit is litres either way and the price is stated
+    // outright, so this is only the label on the field.
+    energyKind: 'gasoline',
+    consumptionPer100Km: 9.5,
     rounding: 'nearest',
     driverId: 'matthew',
 
@@ -87,13 +91,13 @@ function drive(id: string, from: string, to: string, distanceKm: number, occupan
   }
 }
 
-function idleStop(id: string, location: string, liters: number, occupantIds: string[]) {
+function idleStop(id: string, location: string, energy: number, occupantIds: string[]) {
   return {
     kind: 'idle' as const,
     id,
     label: `Canister burned waiting at ${location}`,
     location,
-    liters,
+    energy,
     occupantIds,
   }
 }

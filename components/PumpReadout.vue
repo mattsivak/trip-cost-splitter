@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ENERGY_KIND_LABELS, formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
 import type { TripResult } from '~/src/domain/trip/result'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -26,9 +27,11 @@ const priceNote = computed(() =>
     </div>
 
     <div class="readout__cell">
-      <span class="readout__label">Fuel</span>
-      <strong class="readout__value">{{ formatLiters(result.totalLiters) }}</strong>
-      <span class="readout__note">{{ exact(result.derivedPricePerLiter) }}/L, {{ priceNote }}</span>
+      <span class="readout__label">{{ ENERGY_KIND_LABELS[trip.energyKind] }}</span>
+      <strong class="readout__value">{{ formatEnergy(result.totalEnergy, trip.energyKind) }}</strong>
+      <span class="readout__note"
+        >{{ exact(result.derivedPricePerUnit) }}/{{ unitLabelFor(trip.energyKind) }}, {{ priceNote }}</span
+      >
     </div>
 
     <div class="readout__cell">

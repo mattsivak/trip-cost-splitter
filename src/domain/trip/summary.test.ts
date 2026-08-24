@@ -7,7 +7,7 @@ import { makeDrive, makeTrip } from './testing'
 const trip = makeTrip({
   title: 'Weekend run',
   pricing: { mode: 'from-receipts' },
-  defaultConsumptionLPer100Km: 10,
+  consumptionPer100Km: 10,
   segments: [
     makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] }),
     makeDrive({ id: 'd2', distanceKm: 100, occupantIds: ['ann', 'bo'] }),
@@ -20,7 +20,7 @@ describe('formatTripSummary', () => {
 
   it('leads with the trip and its totals', () => {
     expect(summary).toContain('Weekend run — fuel split')
-    expect(summary).toContain('200 km · 20 L · 900 Kč total')
+    expect(summary).toContain('200 km · 20,0 L · 900 Kč total')
   })
 
   it('names the driver and what they are carrying', () => {
@@ -51,6 +51,11 @@ describe('formatTripSummary', () => {
     expect(formatTripSummary(underBilled, calculateTrip(underBilled))).toContain(
       'more than this split covers',
     )
+  })
+
+  it('reports the trip in its own unit', () => {
+    const electric = makeTrip({ ...trip, energyKind: 'electric' })
+    expect(formatTripSummary(electric, calculateTrip(electric))).toContain('200 km · 20,0 kWh')
   })
 
   it('mentions overhead only when there is some', () => {

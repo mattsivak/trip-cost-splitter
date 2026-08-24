@@ -1,9 +1,11 @@
 import type { RoundingMode } from '../money/money'
+import { isEnergyKind, type EnergyKind } from '../pricing/energyKind'
 import { createId, createTrip } from '../trip/factories'
 import type {
   DistanceSource,
   OverheadCost,
   Person,
+  PriceSource,
   Pricing,
   Receipt,
   RoutePoint,
@@ -36,7 +38,10 @@ export function parseTrip(value: unknown): Trip | null {
     createdAt: str(value.createdAt) || base.createdAt,
     updatedAt: str(value.updatedAt) || base.updatedAt,
     pricing: parsePricing(value.pricing),
-    defaultConsumptionLPer100Km: num(value.defaultConsumptionLPer100Km, 7),
+    energyKind: parseEnergyKind(value.energyKind),
+    // `defaultConsumptionLPer100Km` is what trips saved before the app counted
+    // anything but litres called this.
+    consumptionPer100Km: num(value.consumptionPer100Km, num(value.defaultConsumptionLPer100Km, 7)),
     driverId,
     people,
     routePoints: asArray(value.routePoints).flatMap(parseRoutePoint),
@@ -79,7 +84,8 @@ function parseSegment(value: unknown, knownPeople: ReadonlySet<string>): Segment
       kind: 'idle',
       id,
       label: str(value.label) || 'Waiting',
-      liters: num(value.liters, 0),
+      // `liters` is the name trips saved before kWh existed.
+      energy: pickNumber(value.energy, value.liters) ?? 0,
       occupantIds,
     }
     if (str(value.location)) idle.location = str(value.location)
@@ -100,9 +106,11 @@ function parseSegment(value: unknown, knownPeople: ReadonlySet<string>): Segment
     occupantIds,
   }
   if (Number.isFinite(value.durationSeconds)) drive.durationSeconds = value.durationSeconds as number
-  if (Number.isFinite(value.consumptionLPer100Km))
-    drive.consumptionLPer100Km = value.consumptionLPer100Km as number
-  if (Number.isFinite(value.directLiters)) drive.directLiters = value.directLiters as number
+  // The second name in each pair is what trips saved before kWh existed.
+  const consumption = pickNumber(value.consumptionPer100Km, value.consumptionLPer100Km)
+  if (consumption !== null) drive.consumptionPer100Km = consumption
+  const measured = pickNumber(value.directEnergy, value.directLiters)
+  if (measured !== null) drive.directEnergy = measured
   if (str(value.notes)) drive.notes = str(value.notes)
   return [drive]
 }
@@ -152,10 +160,37 @@ function parseReceipt(value: unknown): Receipt[] {
 }
 
 function parsePricing(value: unknown): Pricing {
-  if (isRecord(value) && value.mode === 'fixed-price') {
-    return { mode: 'fixed-price', pricePerLiter: Math.round(num(value.pricePerLiter, 0)) }
+  if (isRecord(value) && value.mode === 'from-receipts') return { mode: 'from-receipts' }
+
+  // `pricePerLiter` is the name trips saved before kWh existed.
+  const price = isRecord(value) ? (pickNumber(value.pricePerUnit, value.pricePerLiter) ?? 0) : 0
+  const pricing: Pricing = { mode: 'fixed-price', pricePerUnit: Math.round(price) }
+
+  const source = parsePriceSource(isRecord(value) ? value.source : null)
+  return source ? { ...pricing, source } : pricing
+}
+
+function parsePriceSource(value: unknown): PriceSource | null {
+  if (!isRecord(value)) return null
+  const countryName = str(value.countryName)
+  if (!countryName) return null
+  return {
+    countryName,
+    fetchedAt: str(value.fetchedAt),
+    convertedFromGallons: value.convertedFromGallons === true,
   }
-  return { mode: 'from-receipts' }
+}
+
+function parseEnergyKind(value: unknown): EnergyKind {
+  return isEnergyKind(value) ? value : 'gasoline'
+}
+
+/** First of the two field names that holds a usable number. */
+function pickNumber(...candidates: unknown[]): number | null {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate
+  }
+  return null
 }
 
 function parseRounding(value: unknown): RoundingMode {

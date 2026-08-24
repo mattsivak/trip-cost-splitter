@@ -9,8 +9,9 @@ export function makeTrip(overrides: Partial<Trip> = {}): Trip {
     currency: 'Kč',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    pricing: { mode: 'fixed-price', pricePerLiter: fromMajor(43) },
-    defaultConsumptionLPer100Km: 10,
+    pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(43) },
+    energyKind: 'gasoline',
+    consumptionPer100Km: 10,
     driverId: 'ann',
     people: [
       { id: 'ann', name: 'Ann' },
@@ -41,5 +42,5 @@ export function makeDrive(overrides: Partial<DriveSegment> = {}): DriveSegment {
 }
 
 export function makeIdle(overrides: Partial<IdleSegment> = {}): IdleSegment {
-  return { kind: 'idle', id: 'idle-1', label: 'Waiting', liters: 10, occupantIds: ['ann'], ...overrides }
+  return { kind: 'idle', id: 'idle-1', label: 'Waiting', energy: 10, occupantIds: ['ann'], ...overrides }
 }

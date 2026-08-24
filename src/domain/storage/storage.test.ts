@@ -22,7 +22,8 @@ describe('parseTrip', () => {
     const trip = parseTrip({ title: 'Bare' })
     expect(trip?.title).toBe('Bare')
     expect(trip?.currency).toBe('Kč')
-    expect(trip?.pricing).toEqual({ mode: 'from-receipts' })
+    expect(trip?.pricing).toEqual({ mode: 'fixed-price', pricePerUnit: 0 })
+    expect(trip?.energyKind).toBe('gasoline')
     expect(trip?.people).toEqual([])
   })
 
@@ -46,10 +47,10 @@ describe('parseTrip', () => {
 
   it('replaces non-numeric amounts rather than producing NaN', () => {
     const trip = parseTrip({
-      defaultConsumptionLPer100Km: 'lots',
+      consumptionPer100Km: 'lots',
       receipts: [{ id: 'r1', label: 'Fuel', amount: 'much' }],
     })
-    expect(trip?.defaultConsumptionLPer100Km).toBe(7)
+    expect(trip?.consumptionPer100Km).toBe(7)
     expect(trip?.receipts[0]?.amount).toBe(0)
   })
 
@@ -152,5 +153,64 @@ describe('url sharing', () => {
     const url = buildShareUrl('https://trips.example.com/', trip)
     expect(url.startsWith('https://trips.example.com/trip/import#')).toBe(true)
     expect(url.split('#')[0]).not.toContain('Ann')
+  })
+})
+
+describe('trips saved before the app counted anything but litres', () => {
+  it('reads the old field names so an existing trip still opens', () => {
+    const legacy = {
+      title: 'Old trip',
+      defaultConsumptionLPer100Km: 9.5,
+      pricing: { mode: 'fixed-price', pricePerLiter: 4300 },
+      people: [{ id: 'ann', name: 'Ann' }],
+      segments: [
+        {
+          kind: 'drive',
+          id: 'd1',
+          from: 'A',
+          to: 'B',
+          distanceKm: 100,
+          consumptionLPer100Km: 12,
+          occupantIds: ['ann'],
+        },
+        {
+          kind: 'drive',
+          id: 'd2',
+          from: 'B',
+          to: 'C',
+          distanceKm: 50,
+          directLiters: 4,
+          occupantIds: ['ann'],
+        },
+        { kind: 'idle', id: 'i1', liters: 20, occupantIds: ['ann'] },
+      ],
+    }
+
+    const trip = parseTrip(legacy)
+    expect(trip?.consumptionPer100Km).toBe(9.5)
+    expect(trip?.pricing).toEqual({ mode: 'fixed-price', pricePerUnit: 4300 })
+    expect(trip?.segments[0]).toMatchObject({ consumptionPer100Km: 12 })
+    expect(trip?.segments[1]).toMatchObject({ directEnergy: 4 })
+    expect(trip?.segments[2]).toMatchObject({ energy: 20 })
+  })
+
+  it('assumes petrol, since a trip saved back then had no energy kind', () => {
+    expect(parseTrip({ title: 'Old' })?.energyKind).toBe('gasoline')
+  })
+
+  it('prefers the current field name when both are present', () => {
+    const trip = parseTrip({
+      consumptionPer100Km: 18,
+      defaultConsumptionLPer100Km: 9.5,
+      people: [{ id: 'a', name: 'A' }],
+      segments: [{ kind: 'idle', id: 'i1', energy: 30, liters: 20, occupantIds: [] }],
+    })
+    expect(trip?.consumptionPer100Km).toBe(18)
+    expect(trip?.segments[0]).toMatchObject({ energy: 30 })
+  })
+
+  it('keeps an energy kind it does recognise', () => {
+    expect(parseTrip({ energyKind: 'electric' })?.energyKind).toBe('electric')
+    expect(parseTrip({ energyKind: 'plutonium' })?.energyKind).toBe('gasoline')
   })
 })

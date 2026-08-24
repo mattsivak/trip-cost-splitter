@@ -5,8 +5,8 @@ export interface SegmentBreakdown {
   segmentId: SegmentId
   label: string
   kind: 'drive' | 'idle'
-  liters: number
-  litersPerOccupant: number
+  energy: number
+  energyPerOccupant: number
   occupantIds: PersonId[]
   cost: Money
   costPerOccupant: Money
@@ -17,7 +17,7 @@ export interface PersonBreakdown {
   personId: PersonId
   name: string
   isDriver: boolean
-  liters: number
+  energy: number
   fuelShare: Money
   overheadShare: Money
   /** Exact amount owed, in minor units. */
@@ -28,12 +28,12 @@ export interface PersonBreakdown {
 }
 
 export interface TripResult {
-  totalLiters: number
+  totalEnergy: number
   totalDistanceKm: number
-  /** The pot of money being divided for fuel. */
+  /** The pot of money being divided for energy. */
   fuelTotal: Money
-  /** Implied by the pot and the litres, whichever pricing mode produced it. */
-  derivedPricePerLiter: Money
+  /** Implied by the pot and the quantity, whichever pricing mode produced it. */
+  derivedPricePerUnit: Money
   overheadTotal: Money
   receiptsTotal: Money
   /**
