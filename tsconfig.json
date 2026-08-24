@@ -18,7 +18,9 @@
     "composables/**/*.ts",
     "pages/**/*.vue",
     "server/**/*.ts",
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "e2e/**/*.ts",
+    "playwright.config.ts"
   ],
   "exclude": ["node_modules", ".output", "dist"]
 }

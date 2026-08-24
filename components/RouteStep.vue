@@ -3,6 +3,7 @@ import { insertAfter } from '~/src/domain/list'
 import { createDrive, createIdle, driveLabel } from '~/src/domain/trip/factories'
 import { litersForSegment } from '~/src/domain/trip/fuel'
 import { routeToSegments } from '~/src/domain/routing/routeToSegments'
+import { reanchorIdleStops } from '~/src/domain/trip/reanchorIdleStops'
 import type { GeoPoint } from '~/src/domain/routing/types'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -53,10 +54,18 @@ async function lookUpRoute() {
     lon: point.lon,
   }))
 
-  // Idle stops are the user's own measurements — a route lookup must not wipe them.
-  const idleStops = props.trip.segments.filter((segment) => segment.kind === 'idle')
-  props.trip.segments = [...routeToSegments(plan, driverOnly()), ...idleStops]
-  lookupNote.value = `Found ${plan.legs.length} drives via ${plan.provider === 'mapy' ? 'Mapy.com' : 'OpenStreetMap'}. Every distance below is editable.`
+  // Idle stops are the user's own measurements, so a lookup must not wipe them
+  // — and must not dump them at the end either, since a stop's fuel is split
+  // against whoever is assigned to it where it sits.
+  const idleStops = props.trip.segments.filter((segment) => segment.kind === 'idle').length
+  props.trip.segments = reanchorIdleStops(props.trip.segments, routeToSegments(plan, driverOnly()))
+
+  const provider = plan.provider === 'mapy' ? 'Mapy.com' : 'OpenStreetMap'
+  const kept =
+    idleStops > 0
+      ? ` Your ${idleStops === 1 ? 'idle stop stays' : 'idle stops stay'} where they happened.`
+      : ''
+  lookupNote.value = `Found ${plan.legs.length} drives via ${provider}. Every distance below is editable.${kept}`
 }
 
 function driverOnly(): string[] {

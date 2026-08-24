@@ -39,9 +39,15 @@ across hundreds of awkward splits.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm run verify     # lint, typecheck, tests
+npm run verify     # lint, typecheck, unit tests
+npm run test:e2e   # Playwright, against a real build
 npm run build && npm run preview
 ```
+
+The unit tests cover the domain. The Playwright specs cover the handful of
+things that only exist in a browser — native drag-and-drop, and what a route
+lookup does to the list — and stub `/api/routing/*` so they never depend on a
+mapping service being up. First run needs `npx playwright install chromium`.
 
 Verified on Node `v20.19.0`.
 
@@ -95,6 +101,7 @@ src/domain/          Framework-free. No Vue, no Nuxt, no network.
   routing/           Provider interface, OSRM, Mapy, segment mapping
   storage/           TripStore interface, localStorage, URL codec
 src/fixtures/        The demo trip and the golden test
+e2e/                 Playwright specs for the browser-only behaviour
 server/api/routing/  Nitro endpoints; where the provider keys stay
 components/          The wizard steps and shared pieces
 composables/         Reactive glue between the domain and the pages
