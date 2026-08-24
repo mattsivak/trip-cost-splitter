@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { formatEnergy } from '~/src/domain/pricing/energyKind'
 import { toMajor } from '~/src/domain/money/money'
-import { buildRevolutLink, normalizeRevolutHandle } from '~/src/domain/settle/revolut'
+import { canBuildPaymentLinks, paymentLinkFor } from '~/src/domain/settle/payment'
+import { normalizeRevolutHandle } from '~/src/domain/settle/revolut'
 import type { PersonBreakdown } from '~/src/domain/trip/result'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -38,9 +39,11 @@ function paidOn(personId: string): string {
 }
 
 function payLink(person: PersonBreakdown): string | null {
-  if (!props.trip.revolutHandle || !props.trip.currencyCode) return null
-  return buildRevolutLink(props.trip.revolutHandle, toMajor(person.payable), props.trip.currencyCode)
+  return paymentLinkFor(props.trip, toMajor(person.payable))
 }
+
+/** Guards the sentence about buttons, so it cannot promise ones that are absent. */
+const hasPayButtons = computed(() => canBuildPaymentLinks(props.trip))
 
 const driver = computed(() => props.people.find((person) => person.isDriver))
 
@@ -62,7 +65,10 @@ const outstanding = computed(() =>
     <p v-if="payee" class="payee">
       Money goes to <strong>{{ driver?.name ?? 'the driver' }}</strong> at
       <a :href="payee.url" target="_blank" rel="noopener noreferrer">revolut.me/{{ payee.handle }}</a
-      >. Each button below opens Revolut with that person's amount already filled in.
+      ><template v-if="hasPayButtons">
+        . Each button below opens Revolut with that person's amount already filled in.
+      </template>
+      <template v-else>. Send them {{ trip.currency }} there.</template>
     </p>
 
     <div v-if="!owing.length" class="empty"><p>Nothing to collect.</p></div>

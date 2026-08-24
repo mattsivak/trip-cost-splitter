@@ -151,6 +151,52 @@ test('a collector with the trip open cannot wipe a mark made on the link', async
   await guest.close()
 })
 
+test('a trip made from scratch gets payment buttons, not just the promise of them', async ({
+  page,
+  context,
+}) => {
+  // Every other test here uses the example trip, which hardcodes its currency
+  // code. A trip started from nothing has only the symbol, and that is the
+  // case that was broken.
+  await stubPrice(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Start a trip' }).click()
+  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'People' }).click()
+  for (const name of ['Matthew', 'Janca']) {
+    await page.getByPlaceholder('Name').fill(name)
+    await page.getByRole('button', { name: 'Add person' }).click()
+  }
+
+  await page.getByRole('button', { name: 'Route' }).click()
+  // The stubbed lookup leaves no price, so without this nobody owes anything.
+  await page.getByLabel('Kč per L').fill('40')
+  await page.getByRole('button', { name: 'Add a drive' }).click()
+  await page.getByLabel('Distance km').fill('100')
+
+  await page.getByRole('button', { name: 'Assign' }).click()
+  await page.getByRole('button', { name: 'Everyone', exact: true }).click()
+
+  await page.getByRole('button', { name: 'Collect' }).click()
+  await page.getByLabel('Your Revolut handle').fill('mattsivak')
+  await expect(page.getByRole('link', { name: /^Pay / })).toBeVisible()
+  await waitForSave(page)
+
+  const link = await paymentLink(page)
+  const guest = await context.newPage()
+  await guest.goto(link)
+
+  // The banner and the buttons must agree.
+  await expect(guest.getByText('Each button below opens Revolut')).toBeVisible()
+  await expect(guest.getByRole('link', { name: /^Pay / })).toBeVisible()
+  await expect(guest.getByRole('link', { name: /^Pay / }).first()).toHaveAttribute(
+    'href',
+    /^https:\/\/revolut\.me\/mattsivak\/\d+czk$/,
+  )
+  await guest.close()
+})
+
 test('a link without its key opens nothing', async ({ page }) => {
   await openDemoAtCollect(page)
   const link = await paymentLink(page)

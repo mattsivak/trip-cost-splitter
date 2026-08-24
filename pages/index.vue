@@ -40,6 +40,8 @@ async function startTrip() {
       },
     }
     trip.currency = currencySymbol(price.currency)
+    // Kept as well as the symbol: a payment link needs the ISO code.
+    trip.currencyCode = price.currency.toUpperCase()
   }
 
   const saved = await store.save(trip)

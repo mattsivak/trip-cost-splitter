@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { currencyCodeFor } from '~/src/domain/money/currency'
+import { canBuildPaymentLinks, paymentCurrencyCode } from '~/src/domain/settle/payment'
 import { normalizeRevolutHandle, revolutProfileUrl } from '~/src/domain/settle/revolut'
 import { buildCopyUrl, buildViewUrl } from '~/src/domain/storage/urlCodec'
 import type { TripResult } from '~/src/domain/trip/result'
@@ -47,13 +47,22 @@ const profileUrl = computed(() => revolutProfileUrl(handle.value))
  * a wrong code would build a link asking for the wrong money.
  */
 const currencyCode = computed({
-  get: () => props.trip.currencyCode ?? currencyCodeFor(props.trip.currency) ?? '',
+  get: () => paymentCurrencyCode(props.trip) ?? '',
   set: (value: string) => {
     props.trip.currencyCode = value.trim().toUpperCase()
   },
 })
 
-const canPay = computed(() => handleOk.value && /^[A-Za-z]{3}$/.test(currencyCode.value))
+const canPay = computed(() => canBuildPaymentLinks(props.trip))
+
+/**
+ * A code only guessed from the symbol is written down as soon as this step is
+ * opened. Otherwise the field shows CZK while the trip stores nothing, and the
+ * payment links quietly fail to appear.
+ */
+onMounted(() => {
+  if (!props.trip.currencyCode && currencyCode.value) props.trip.currencyCode = currencyCode.value
+})
 
 async function copy(which: 'view' | 'copy') {
   const link =

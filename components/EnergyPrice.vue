@@ -76,6 +76,7 @@ async function changeEnergyKind(value: string) {
     },
   }
   props.trip.currency = currencySymbol(price.currency)
+  props.trip.currencyCode = price.currency.toUpperCase()
 }
 </script>
 
