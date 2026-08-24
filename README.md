@@ -68,9 +68,11 @@ A new trip opens priced per unit, prefilled from the local pump price.
 
 The country comes from the request, never from the browser's geolocation API —
 nobody gets a permission prompt for a fuel price. A CDN header (`cf-ipcountry`
-and friends) is used when there is one; only without it does the address leave
-the server for a lookup, and only public addresses are looked up at all, since
-a LAN address never resolves.
+and friends) answers first. Failing that, a public client address is
+geolocated; a loopback or LAN address is not, since it would never resolve, and
+the server's own country is used instead. That last case is what makes the
+price prefill work in local development, where the visitor and the server are
+the same machine.
 
 Prices come from [openvan.camp](https://openvan.camp/en/developers) — free, no
 key, 142 countries, weekly from official sources including the EU Weekly Oil

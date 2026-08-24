@@ -97,3 +97,25 @@ function normalizeIp(value: string): string {
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(trimmed)
   return mapped?.[1] ?? trimmed
 }
+
+export type CountrySource = 'client-ip' | 'server-ip'
+
+/**
+ * Which address to geolocate, and what that answer will mean.
+ *
+ * A public client address is looked up directly. For a loopback or LAN
+ * address there is nothing useful to look up, so we ask GeoJS about *our own*
+ * outbound address instead — which it reports when given no address at all.
+ *
+ * That is not a fudge: the case it covers is running the app locally, where
+ * the visitor and the server are the same machine, and the server's country is
+ * exactly the right answer. Skipping the lookup entirely, as an earlier
+ * version did, meant the price was never prefilled in development.
+ *
+ * A real deployment answers from a CDN header long before reaching this.
+ */
+export function geoLookupFor(ip: string | null, base: string): { url: string; via: CountrySource } {
+  return ip && isPublicIp(ip)
+    ? { url: `${base}/${encodeURIComponent(ip)}.json`, via: 'client-ip' }
+    : { url: `${base}.json`, via: 'server-ip' }
+}

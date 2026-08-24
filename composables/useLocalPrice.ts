@@ -5,6 +5,8 @@ import type { LocalFuelPrice } from '~/src/domain/pricing/fuelPrices'
 export interface LocalPriceAnswer {
   price: LocalFuelPrice | null
   country: string | null
+  /** How the country was worked out, for the record. */
+  via?: 'cdn-header' | 'client-ip' | 'server-ip' | null
   reason: 'no-national-price' | 'unknown-country' | 'no-price-for-country' | null
 }
 
@@ -26,7 +28,7 @@ export async function fetchLocalPrice(energyKind: EnergyKind): Promise<LocalPric
       signal: AbortSignal.timeout(6000),
     })
   } catch {
-    return { price: null, country: null, reason: 'unknown-country' }
+    return { price: null, country: null, via: null, reason: 'unknown-country' }
   }
 }
 

@@ -1,5 +1,6 @@
-import { countryFromGeoJs, isPublicIp } from '../../src/domain/geo/clientCountry'
+import { countryFromGeoJs, geoLookupFor } from '../../src/domain/geo/clientCountry'
 import { selectFuelPrice, type LocalFuelPrice } from '../../src/domain/pricing/fuelPrices'
+import type { CountrySource } from '../../src/domain/geo/clientCountry'
 import type { EnergyKind } from '../../src/domain/pricing/energyKind'
 
 const PRICES_URL = 'https://openvan.camp/api/fuel/prices'
@@ -18,6 +19,9 @@ interface Cached<T> {
 let prices: Cached<unknown> | null = null
 const countries = new Map<string, Cached<string | null>>()
 
+/** Key for the server's own country, which has no client IP to file it under. */
+const OWN_IP = '@self'
+
 function fresh<T>(entry: Cached<T> | null | undefined, ttl: number): entry is Cached<T> {
   return !!entry && Date.now() - entry.at < ttl
 }
@@ -31,30 +35,44 @@ async function getJson(url: string): Promise<unknown> {
   return response.json()
 }
 
-/**
- * Which country an IP is in.
- *
- * Only public addresses are looked up: a loopback or LAN address never
- * resolves, so asking about one sends somebody's request off-site for nothing.
- */
-export async function countryForIp(ip: string | null): Promise<string | null> {
-  if (!ip || !isPublicIp(ip)) return null
+export interface CountryLookup {
+  country: string | null
+  via: CountrySource | null
+}
 
-  const cached = countries.get(ip)
-  if (fresh(cached, COUNTRY_TTL_MS)) return cached.value
+/**
+ * Which country a request came from.
+ *
+ * A public client address is looked up directly. A loopback or LAN address
+ * never resolves, so rather than ask about it — which would leak a pointless
+ * request — we ask which country *this server* is in. That is the same answer
+ * in the case it matters for: running the app locally, where the visitor and
+ * the server are the same machine.
+ *
+ * In a real deployment a CDN header answers first and this is never reached.
+ */
+export async function countryForRequest(ip: string | null): Promise<CountryLookup> {
+  const { url, via } = geoLookupFor(ip, GEO_URL)
+  const key = via === 'client-ip' ? (ip as string) : OWN_IP
+
+  const cached = countries.get(key)
+  if (fresh(cached, COUNTRY_TTL_MS)) return { country: cached.value, via: cached.value ? via : null }
 
   try {
-    const country = countryFromGeoJs(await getJson(`${GEO_URL}/${encodeURIComponent(ip)}.json`))
-    countries.set(ip, { at: Date.now(), value: country })
-    return country
+    const country = countryFromGeoJs(await getJson(url))
+    countries.set(key, { at: Date.now(), value: country })
+    return { country, via: country ? via : null }
   } catch {
     // A geolocation outage must not stop anyone creating a trip.
-    countries.set(ip, { at: Date.now(), value: null })
-    return null
+    countries.set(key, { at: Date.now(), value: null })
+    return { country: null, via: null }
   }
 }
 
-export async function priceForCountry(country: string, energyKind: EnergyKind): Promise<LocalFuelPrice | null> {
+export async function priceForCountry(
+  country: string,
+  energyKind: EnergyKind,
+): Promise<LocalFuelPrice | null> {
   if (!fresh(prices, PRICE_TTL_MS)) {
     try {
       prices = { at: Date.now(), value: await getJson(PRICES_URL) }

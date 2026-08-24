@@ -1,6 +1,6 @@
 import { clientIpFromHeaders, countryFromHeaders } from '../../../src/domain/geo/clientCountry'
 import { isEnergyKind, canLookUpPrice } from '../../../src/domain/pricing/energyKind'
-import { countryForIp, priceForCountry } from '../../utils/localPrice'
+import { countryForRequest, priceForCountry } from '../../utils/localPrice'
 
 /**
  * The local pump price, for prefilling a new trip.
@@ -22,14 +22,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const headers = getRequestHeaders(event)
-  const country =
-    countryFromHeaders(headers) ??
-    (await countryForIp(clientIpFromHeaders(headers, getRequestIP(event, { xForwardedFor: true }))))
+  const fromHeader = countryFromHeaders(headers)
+  const lookup = fromHeader
+    ? { country: fromHeader, via: 'cdn-header' as const }
+    : await countryForRequest(clientIpFromHeaders(headers, getRequestIP(event, { xForwardedFor: true })))
 
-  if (!country) return { price: null, country: null, reason: 'unknown-country' as const }
+  if (!lookup.country) return { price: null, country: null, via: null, reason: 'unknown-country' as const }
 
-  const price = await priceForCountry(country, energyKind)
+  const price = await priceForCountry(lookup.country, energyKind)
   return price
-    ? { price, country, reason: null }
-    : { price: null, country, reason: 'no-price-for-country' as const }
+    ? { price, country: lookup.country, via: lookup.via, reason: null }
+    : { price: null, country: lookup.country, via: lookup.via, reason: 'no-price-for-country' as const }
 })

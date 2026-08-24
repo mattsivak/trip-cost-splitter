@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { clientIpFromHeaders, countryFromGeoJs, countryFromHeaders, isPublicIp } from './clientCountry'
+import {
+  clientIpFromHeaders,
+  countryFromGeoJs,
+  countryFromHeaders,
+  geoLookupFor,
+  isPublicIp,
+} from './clientCountry'
 
 describe('countryFromHeaders', () => {
   it('trusts Cloudflare first', () => {
@@ -110,5 +116,29 @@ describe('countryFromGeoJs', () => {
 
   it('returns null for junk', () => {
     for (const junk of [null, undefined, 'CZ', 42, [], {}]) expect(countryFromGeoJs(junk)).toBeNull()
+  })
+})
+
+describe('geoLookupFor', () => {
+  const base = 'https://get.geojs.io/v1/ip/country'
+
+  it('looks up a public client address directly', () => {
+    expect(geoLookupFor('203.0.113.7', base)).toEqual({
+      url: `${base}/203.0.113.7.json`,
+      via: 'client-ip',
+    })
+  })
+
+  it('asks for our own address when the client is on this machine', () => {
+    // Running locally, the visitor and the server are the same machine, so the
+    // server's country is the right answer. Skipping the lookup meant the
+    // price was never prefilled in development.
+    for (const local of ['127.0.0.1', '::1', '192.168.1.10', null]) {
+      expect(geoLookupFor(local, base)).toEqual({ url: `${base}.json`, via: 'server-ip' })
+    }
+  })
+
+  it('escapes the address rather than pasting it into the URL', () => {
+    expect(geoLookupFor('203.0.113.7/../evil', base).via).toBe('server-ip')
   })
 })
