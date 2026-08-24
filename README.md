@@ -106,6 +106,19 @@ not the last word.
 cp .env.example .env   # MAPY_API_KEY is optional
 ```
 
+## Light and dark
+
+The palette is one set of tokens defined twice over: once on bare `:root`, then
+redefined under `prefers-color-scheme: dark` and again under
+`[data-theme="dark"]`, so an explicit choice wins in both directions. The
+control in the header offers Auto, Light and Dark; Auto removes the attribute
+entirely rather than resolving it, which leaves the media query free to follow
+the system if it changes while the page is open.
+
+An inline script in the document head applies a stored choice before the first
+paint. Without it the page renders in the system theme and then flips, which is
+worse than having no toggle at all.
+
 ## Storing and sharing
 
 Trips are saved in `localStorage` behind a `TripStore` interface whose methods

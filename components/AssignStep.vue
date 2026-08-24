@@ -52,8 +52,8 @@ function shareLabels(segment: Segment): Record<PersonId, string> {
         <p class="eyebrow">Step 3</p>
         <h2>Who was in for each stretch</h2>
         <p class="section__lede">
-          A stretch of fuel is split evenly between everyone who was there for it. The bar shows exactly how
-          each part is being cut.
+          A stretch is split evenly between everyone who was there for it. The bar shows exactly how each part
+          is being cut.
         </p>
       </div>
     </div>

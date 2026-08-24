@@ -18,6 +18,8 @@ useHead({
         <strong>Trip Cost Splitter</strong>
         <span class="eyebrow">fuel, split by who was in the car</span>
       </NuxtLink>
+
+      <ThemeToggle />
     </header>
 
     <NuxtPage />

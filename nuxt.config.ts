@@ -21,8 +21,22 @@ export default defineNuxtConfig({
       title: 'Trip Cost Splitter',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: 'Split fuel and trip costs fairly across everyone who rode along.' },
-        { name: 'color-scheme', content: 'dark light' },
+        {
+          name: 'description',
+          content: 'Split fuel and trip costs fairly across everyone who rode along.',
+        },
+        { name: 'color-scheme', content: 'light dark' },
+      ],
+      script: [
+        {
+          // Applies a stored theme choice before the first paint. Without this
+          // the page renders in the system theme and then flips, which is
+          // worse than having no toggle at all.
+          innerHTML:
+            "try{var t=localStorage.getItem('trip-cost-splitter:theme');" +
+            "if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}",
+          tagPosition: 'head',
+        },
       ],
     },
   },

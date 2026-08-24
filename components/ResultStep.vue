@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatEnergy } from '~/src/domain/pricing/energyKind'
+import { formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
 import { fromMajor, toMajor } from '~/src/domain/money/money'
 import { createOverhead, createReceipt } from '~/src/domain/trip/factories'
 import type { TripResult } from '~/src/domain/trip/result'
@@ -57,8 +57,8 @@ async function copy(kind: 'summary' | 'link') {
           <h2>What was actually spent</h2>
           <p class="section__lede">
             Receipts are the money that really left the driver's pocket. Price the trip from them and the
-            split always adds up to what was spent; set a price per litre instead and the app tells you what
-            is left over.
+            split always adds up to what was spent; set a price per unit instead and the app tells you what is
+            left over.
           </p>
         </div>
       </div>
@@ -80,7 +80,7 @@ async function copy(kind: 'summary' | 'link') {
             :name="`pricing-${trip.id}`"
             @change="setMode('fixed-price')"
           />
-          <span>Set a price per litre</span>
+          <span>Set a price per {{ unitLabelFor(trip.energyKind) }}</span>
         </label>
       </div>
 
