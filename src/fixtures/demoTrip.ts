@@ -5,9 +5,16 @@ import type { Trip } from '../domain/trip/types'
  * The trip this app was originally built to settle, kept as a demo so the
  * calculator has something real to chew on.
  *
- * Every distance here is a genuine road distance and every receipt is a real
- * amount. The occupancy of the idle stop is a reconstruction — the canister
- * was burned while waiting at Milovice, and this is the group that was there.
+ * The receipts are real amounts. The distances are real road distances, taken
+ * from OSRM's car profile for each pair of stops — the app's own routing, so
+ * clicking "Look up the route" reproduces them.
+ *
+ * They replaced a hardcoded table from the app's first version that ran about
+ * 9% high and contradicted itself, billing Šumperk → Olomouc at 65.2 km and
+ * the identical return leg at 58.9.
+ *
+ * The occupancy of the idle stop is a reconstruction — the canister was
+ * burned while waiting at Milovice, and this is the group that was there.
  *
  * Loaded on demand from the trip list. It is deliberately NOT the app's
  * starting state: nobody else's default should be somebody's August holiday.
@@ -48,14 +55,14 @@ export function createDemoTrip(): Trip {
     ],
 
     segments: [
-      drive('d1', 'Šumperk', 'Olomouc', 65.2, ['matthew']),
-      drive('d2', 'Olomouc', 'Milovice', 246.2, ['matthew', 'terka', 'janca', 'anet']),
+      drive('d1', 'Šumperk', 'Olomouc', 59.7, ['matthew']),
+      drive('d2', 'Olomouc', 'Milovice', 223.3, ['matthew', 'terka', 'janca', 'anet']),
       idleStop('i1', 'Milovice', 20, ['matthew', 'terka', 'janca', 'anet', 'lucis', 'vena']),
-      drive('d3', 'Milovice', 'Olomouc', 246.2, ['matthew', 'terka', 'janca', 'anet', 'lucis', 'vena']),
-      drive('d4', 'Olomouc', 'Vsetín', 100.4, ['matthew', 'terka', 'janca']),
-      drive('d5', 'Vsetín', 'Kunčice', 47.8, ['matthew', 'terka', 'janca', 'lucis', 'ondrej', 'maruska']),
-      drive('d6', 'Kunčice', 'Olomouc', 93.4, ['matthew', 'terka', 'lucis']),
-      drive('d7', 'Olomouc', 'Šumperk', 58.9, ['matthew']),
+      drive('d3', 'Milovice', 'Olomouc', 223.2, ['matthew', 'terka', 'janca', 'anet', 'lucis', 'vena']),
+      drive('d4', 'Olomouc', 'Vsetín', 91, ['matthew', 'terka', 'janca']),
+      drive('d5', 'Vsetín', 'Kunčice', 43.3, ['matthew', 'terka', 'janca', 'lucis', 'ondrej', 'maruska']),
+      drive('d6', 'Kunčice', 'Olomouc', 93.7, ['matthew', 'terka', 'lucis']),
+      drive('d7', 'Olomouc', 'Šumperk', 59.1, ['matthew']),
     ],
 
     overheadCosts: [],
@@ -75,7 +82,7 @@ function drive(id: string, from: string, to: string, distanceKm: number, occupan
     from,
     to,
     distanceKm,
-    distanceSource: 'imported' as const,
+    distanceSource: 'osrm' as const,
     occupantIds,
   }
 }

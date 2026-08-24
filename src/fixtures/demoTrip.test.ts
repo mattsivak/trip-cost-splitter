@@ -6,41 +6,42 @@ import { createDemoTrip } from './demoTrip'
 /**
  * The golden test. Unlike the one it replaces — which asserted that
  * hand-entered per-leg costs added up to hand-entered per-person totals —
- * every number below is produced from distances and litres by the calculator.
+ * every number below is produced by the calculator from real road distances
+ * and measured litres.
  */
 describe('the Volkswagen trip, at a fixed pump price', () => {
   const result = calculateTrip(createDemoTrip())
 
   it('derives the fuel from the route, not from stated costs', () => {
-    expect(result.totalDistanceKm).toBeCloseTo(858.1, 1)
-    // 858.1 km at 9.5 L/100km, plus the 20 L canister.
-    expect(result.totalLiters).toBeCloseTo(101.5195, 4)
-    expect(toMajor(result.fuelTotal)).toBe(4365.34)
+    expect(result.totalDistanceKm).toBeCloseTo(793.3, 1)
+    // 793.3 km at 9.5 L/100km, plus the 20 L canister.
+    expect(result.totalLiters).toBeCloseTo(95.3635, 4)
+    expect(toMajor(result.fuelTotal)).toBe(4100.63)
   })
 
   it('splits it as follows', () => {
     expect(payableByName(result)).toEqual({
-      Matthew: 1364,
-      Terka: 859,
-      Janča: 732,
-      Anet: 562,
-      Lucis: 471,
-      Véna: 311,
-      Ondřej: 33,
-      Maruška: 33,
+      Matthew: 1292,
+      Terka: 804,
+      Janča: 677,
+      Anet: 523,
+      Lucis: 452,
+      Véna: 295,
+      Ondřej: 29,
+      Maruška: 29,
     })
   })
 
-  it('shows Matthew the 2 528 Kč the old model let him quietly absorb', () => {
+  it('shows Matthew the 2 793 Kč the old model let him quietly absorb', () => {
     expect(toMajor(result.receiptsTotal)).toBe(6893.73)
-    expect(toMajor(result.receiptsDelta)).toBe(2528.39)
+    expect(toMajor(result.receiptsDelta)).toBe(2793.1)
     expect(result.warnings).toHaveLength(1)
     expect(result.warnings[0]).toContain('driver')
   })
 
   it('collects exactly what it bills', () => {
     expect(result.driverPayable + result.collectFromOthers).toBe(result.totalPayable)
-    expect(toMajor(result.collectFromOthers)).toBe(3001)
+    expect(toMajor(result.collectFromOthers)).toBe(2809)
   })
 })
 
@@ -54,22 +55,22 @@ describe('the same trip, priced from the receipts', () => {
   })
 
   it('derives a price per litre well above the pump price, which is the point', () => {
-    // 6 893,73 Kč of fuel against 101,5 L of mileage. Either the van drank
+    // 6 893,73 Kč of fuel against 95,4 L of mileage. Either the van drank
     // more than 9,5 L/100 km or the tank did not start empty — either way,
     // the app now says so instead of hiding it.
-    expect(toMajor(result.derivedPricePerLiter)).toBe(67.91)
+    expect(toMajor(result.derivedPricePerLiter)).toBe(72.29)
   })
 
   it('splits the full amount as follows', () => {
     expect(payableByName(result)).toEqual({
-      Matthew: 2159,
-      Terka: 1356,
-      Janča: 1155,
-      Anet: 888,
-      Lucis: 743,
-      Véna: 491,
-      Ondřej: 51,
-      Maruška: 51,
+      Matthew: 2168,
+      Terka: 1352,
+      Janča: 1138,
+      Anet: 880,
+      Lucis: 760,
+      Véna: 496,
+      Ondřej: 50,
+      Maruška: 50,
     })
   })
 

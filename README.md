@@ -115,9 +115,14 @@ The domain has no imports from Nuxt or Vue, which is why it is the part with
 
 `npm run dev`, then "Open the example trip". It is a real trip, and it is
 deliberately shown in `fixed-price` mode so the first thing you see is the app
-reporting that the receipts come to 2 528 Kč more than the mileage accounts
+reporting that the receipts come to 2 793 Kč more than the mileage accounts
 for. Switch to "Price from the receipts" and the whole 6 893,73 Kč gets divided
 instead.
+
+Its distances are real road distances from OSRM, so "Look up the route"
+reproduces them. They replaced a hardcoded table from the app's first version
+that ran about 9% high and billed the same pair of towns differently in each
+direction.
 
 ## Known limits
 
