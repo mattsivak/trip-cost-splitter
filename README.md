@@ -45,6 +45,17 @@ npm run build && npm run preview
 
 Verified on Node `v20.19.0`.
 
+## Deploying
+
+`npm run build` produces a self-contained Nitro server in `.output/`. It needs
+no `node_modules` at runtime — copy the directory and run it:
+
+```bash
+node .output/server/index.mjs   # honours NITRO_HOST, NITRO_PORT and PORT
+```
+
+Set `MAPY_API_KEY` in the environment if you want the Mapy.com provider.
+
 ## Routing
 
 Distances can be looked up from a list of stops. The provider lives behind an
