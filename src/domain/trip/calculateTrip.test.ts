@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { fromMajor, sumMoney, toMajor } from '../money/money'
 import { calculateTrip } from './calculateTrip'
-import { makeDrive, makeIdle, makeTrip } from './testing'
+import { makeDrive, makeIdle, makeStream, makeTrip, PETROL, VOLTS } from './testing'
 
 describe('fixed-price mode', () => {
   it('charges litres at the stated price', () => {
     const result = calculateTrip(
       makeTrip({
-        pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(43) },
-        consumptionPer100Km: 10,
+        streams: [makeStream({ consumptionPer100Km: 10, pricePerUnit: fromMajor(43) })],
         segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
       }),
     )
@@ -33,14 +32,13 @@ describe('fixed-price mode', () => {
 
   it("warns when no price is set, naming the trip's own unit", () => {
     const result = calculateTrip(
-      makeTrip({ pricing: { mode: 'fixed-price', pricePerUnit: 0 }, segments: [makeDrive()] }),
+      makeTrip({ streams: [makeStream({ pricePerUnit: 0 })], segments: [makeDrive()] }),
     )
     expect(result.warnings).toContain('Set a price per L.')
 
     const electric = calculateTrip(
       makeTrip({
-        pricing: { mode: 'fixed-price', pricePerUnit: 0 },
-        energyKind: 'electric',
+        streams: [makeStream({ kind: 'electric', pricePerUnit: 0 })],
         segments: [makeDrive()],
       }),
     )
@@ -50,8 +48,8 @@ describe('fixed-price mode', () => {
 
 describe('from-receipts mode', () => {
   const trip = makeTrip({
-    pricing: { mode: 'from-receipts' },
-    consumptionPer100Km: 10,
+    pricingMode: 'from-receipts',
+    streams: [makeStream({ consumptionPer100Km: 10 })],
     segments: [
       makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo'] }),
       makeDrive({ id: 'd2', distanceKm: 100, occupantIds: ['ann'] }),
@@ -68,7 +66,7 @@ describe('from-receipts mode', () => {
   it('derives the price per litre instead of taking it as input', () => {
     const result = calculateTrip(trip)
     // 20 L total for 900 Kč.
-    expect(toMajor(result.derivedPricePerUnit)).toBe(45)
+    expect(toMajor(result.streams[0]!.derivedPricePerUnit)).toBe(45)
   })
 
   it('splits in proportion to litres burned per person', () => {
@@ -79,18 +77,18 @@ describe('from-receipts mode', () => {
   })
 
   it('asks for a receipt when there are none', () => {
-    const result = calculateTrip(makeTrip({ pricing: { mode: 'from-receipts' }, segments: [makeDrive()] }))
+    const result = calculateTrip(makeTrip({ pricingMode: 'from-receipts', segments: [makeDrive()] }))
     expect(result.warnings.some((warning) => warning.includes('receipt'))).toBe(true)
   })
 })
 
 describe('reconciliation', () => {
   const awkward = makeTrip({
-    pricing: { mode: 'from-receipts' },
+    pricingMode: 'from-receipts',
     segments: [
       makeDrive({ id: 'd1', distanceKm: 33.3, occupantIds: ['ann', 'bo', 'cy'] }),
       makeDrive({ id: 'd2', distanceKm: 77.7, occupantIds: ['ann', 'cy'] }),
-      makeIdle({ id: 'i1', energy: 7, occupantIds: ['bo', 'cy'] }),
+      makeIdle({ id: 'i1', energy: { [PETROL]: 7 }, occupantIds: ['bo', 'cy'] }),
     ],
     overheadCosts: [{ id: 'o1', label: 'Tolls', amount: fromMajor(100), allocation: { type: 'even' } }],
     receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(1234.57) }],
@@ -132,7 +130,7 @@ describe('reconciliation', () => {
       for (const spend of [0.01, 13.37, 999.99, 6893.73]) {
         const result = calculateTrip(
           makeTrip({
-            pricing: { mode: 'from-receipts' },
+            pricingMode: 'from-receipts',
             segments: [
               makeDrive({ id: 'd1', distanceKm: km, occupantIds: ['ann', 'bo', 'cy'] }),
               makeDrive({ id: 'd2', distanceKm: km / 3, occupantIds: ['bo'] }),
@@ -189,5 +187,127 @@ describe('edge cases the old model got wrong', () => {
     )
     expect(toMajor(result.overheadTotal)).toBe(300)
     expect(toMajor(result.collectFromOthers)).toBe(200)
+  })
+})
+
+describe('a hybrid, with the home-charged battery given away', () => {
+  // Leave home on a full battery: it carries the first 200 km, during which
+  // the engine still sips petrol, then the last 240 km are petrol alone.
+  function hybrid(voltsBilled: boolean, voltsPrice = 0) {
+    return makeTrip({
+      streams: [
+        makeStream({ consumptionPer100Km: 6, pricePerUnit: fromMajor(40) }),
+        makeStream({
+          kind: 'electric',
+          consumptionPer100Km: 0,
+          pricePerUnit: voltsPrice,
+          billed: voltsBilled,
+        }),
+      ],
+      segments: [
+        makeDrive({
+          id: 'd1',
+          distanceKm: 200,
+          consumptionPer100Km: { [PETROL]: 2, [VOLTS]: 15 },
+          occupantIds: ['ann', 'bo'],
+        }),
+        makeDrive({ id: 'd2', distanceKm: 240, occupantIds: ['ann', 'bo'] }),
+      ],
+    })
+  }
+
+  it('counts both streams over the same kilometres', () => {
+    const result = calculateTrip(hybrid(false))
+    // 4 L on the battery half, 14.4 L after it.
+    expect(result.totalEnergy[PETROL]).toBeCloseTo(18.4, 6)
+    expect(result.totalEnergy[VOLTS]).toBeCloseTo(30, 6)
+  })
+
+  it('charges the petrol and nothing at all for the battery', () => {
+    const result = calculateTrip(hybrid(false))
+    expect(toMajor(result.fuelTotal)).toBe(736)
+
+    const volts = result.streams.find((stream) => stream.streamId === VOLTS)!
+    expect(volts.quantity).toBeCloseTo(30, 6)
+    expect(volts.cost).toBe(0)
+    expect(volts.derivedPricePerUnit).toBe(0)
+  })
+
+  it('still says who used the free kilowatt-hours', () => {
+    const result = calculateTrip(hybrid(false))
+    // Both rode every leg, so the battery splits evenly even though it is free.
+    expect(result.people[0]!.energy[VOLTS]).toBeCloseTo(15, 6)
+    expect(result.people[1]!.energy[VOLTS]).toBeCloseTo(15, 6)
+    expect(result.people[0]!.fuelShare).toBe(result.people[1]!.fuelShare)
+  })
+
+  it('does not ask for a price on a stream nobody is billed for', () => {
+    const result = calculateTrip(hybrid(false))
+    expect(result.warnings.some((warning) => warning.includes('kWh'))).toBe(false)
+  })
+
+  it('bills the electricity too once you turn it on', () => {
+    const result = calculateTrip(hybrid(true, fromMajor(6.5)))
+    // 736 Kč of petrol plus 30 kWh at 6,50 Kč.
+    expect(toMajor(result.fuelTotal)).toBe(736 + 195)
+  })
+
+  it('keeps the person and segment tables agreeing across both streams', () => {
+    const result = calculateTrip(hybrid(true, fromMajor(6.5)))
+    expect(sumMoney(result.segments.map((segment) => segment.cost))).toBe(result.fuelTotal)
+    for (const person of result.people) {
+      const fromSegments = sumMoney(result.segments.map((segment) => segment.shares[person.personId] ?? 0))
+      expect(fromSegments).toBe(person.fuelShare)
+    }
+  })
+
+  it('measures an idle stop against both the tank and the battery', () => {
+    const trip = hybrid(false)
+    const result = calculateTrip({
+      ...trip,
+      segments: [makeIdle({ energy: { [PETROL]: 0.4, [VOLTS]: 3.1 }, occupantIds: ['ann'] })],
+    })
+    expect(result.totalEnergy[PETROL]).toBeCloseTo(0.4, 6)
+    expect(result.totalEnergy[VOLTS]).toBeCloseTo(3.1, 6)
+    expect(toMajor(result.fuelTotal)).toBe(16)
+  })
+
+  it('gives an unassigned leg to the driver when only the battery was drawn on', () => {
+    const trip = hybrid(false)
+    const result = calculateTrip({
+      ...trip,
+      segments: [
+        makeDrive({
+          distanceKm: 100,
+          consumptionPer100Km: { [PETROL]: 0, [VOLTS]: 15 },
+          occupantIds: [],
+        }),
+      ],
+    })
+    expect(result.warnings.some((warning) => warning.includes('nobody assigned'))).toBe(true)
+    expect(result.people[0]!.energy[VOLTS]).toBeCloseTo(15, 6)
+  })
+
+  it('refuses to guess how one pot of receipts divides between two billed streams', () => {
+    const result = calculateTrip({
+      ...hybrid(true, fromMajor(6.5)),
+      pricingMode: 'from-receipts',
+      receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(900) }],
+    })
+
+    expect(result.warnings.some((warning) => warning.includes('cannot be split'))).toBe(true)
+    // The whole pot still lands on exactly one stream, so collected == spent.
+    expect(result.fuelTotal).toBe(fromMajor(900))
+  })
+
+  it('prices from receipts happily when only one stream is billed', () => {
+    const result = calculateTrip({
+      ...hybrid(false),
+      pricingMode: 'from-receipts',
+      receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(900) }],
+    })
+
+    expect(result.warnings.some((warning) => warning.includes('cannot be split'))).toBe(false)
+    expect(result.fuelTotal).toBe(fromMajor(900))
   })
 })

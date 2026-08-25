@@ -1,12 +1,26 @@
 import type { Money } from '../money/money'
-import type { PersonId, SegmentId } from './types'
+import type { EnergyKind } from '../pricing/energyKind'
+import type { EnergyMix } from './energy'
+import type { PersonId, SegmentId, StreamId } from './types'
+
+/** What one energy stream came to over the whole trip. */
+export interface StreamBreakdown {
+  streamId: StreamId
+  kind: EnergyKind
+  billed: boolean
+  quantity: number
+  /** Always zero for an unbilled stream — the quantity above still stands. */
+  cost: Money
+  /** Implied by this stream's pot and quantity, whichever mode produced it. */
+  derivedPricePerUnit: Money
+}
 
 export interface SegmentBreakdown {
   segmentId: SegmentId
   label: string
   kind: 'drive' | 'idle'
-  energy: number
-  energyPerOccupant: number
+  energy: EnergyMix
+  energyPerOccupant: EnergyMix
   occupantIds: PersonId[]
   cost: Money
   costPerOccupant: Money
@@ -17,7 +31,7 @@ export interface PersonBreakdown {
   personId: PersonId
   name: string
   isDriver: boolean
-  energy: number
+  energy: EnergyMix
   fuelShare: Money
   overheadShare: Money
   /** Exact amount owed, in minor units. */
@@ -28,12 +42,12 @@ export interface PersonBreakdown {
 }
 
 export interface TripResult {
-  totalEnergy: number
+  totalEnergy: EnergyMix
   totalDistanceKm: number
-  /** The pot of money being divided for energy. */
+  /** Per-stream quantities and costs, in the trip's own stream order. */
+  streams: StreamBreakdown[]
+  /** The pot of money being divided for energy, across every billed stream. */
   fuelTotal: Money
-  /** Implied by the pot and the quantity, whichever pricing mode produced it. */
-  derivedPricePerUnit: Money
   overheadTotal: Money
   receiptsTotal: Money
   /**

@@ -3,6 +3,7 @@ import type { Money, RoundingMode } from '../money/money'
 
 export type PersonId = string
 export type SegmentId = string
+export type StreamId = string
 
 export interface Person {
   id: PersonId
@@ -36,22 +37,27 @@ export interface DriveSegment extends SegmentBase {
   toPointId?: string
   distanceKm: number
   durationSeconds?: number
-  /** Overrides the trip default for this stretch only. */
-  consumptionPer100Km?: number
-  /** A measured quantity, which wins over the distance calculation. */
-  directEnergy?: number
+  /**
+   * Overrides the trip default for this stretch only, per stream. A stream
+   * left out of the record falls through to its trip-wide figure, so a leg
+   * that only differs in one stream says only that.
+   */
+  consumptionPer100Km?: Record<StreamId, number>
+  /** Measured quantities, which win over the distance calculation, per stream. */
+  directEnergy?: Record<StreamId, number>
   distanceSource: DistanceSource
   geometry?: string
 }
 
 /**
  * Energy used while parked, idling or waiting. Measured, not derived.
- * For an electric car this is the cabin heating that runs while you wait.
+ * A hybrid waiting with the heating on really does draw from both the tank
+ * and the battery, so this is a quantity per stream rather than a single one.
  */
 export interface IdleSegment extends SegmentBase {
   kind: 'idle'
   location?: string
-  energy: number
+  energy: Record<StreamId, number>
 }
 
 /**
@@ -95,11 +101,37 @@ export interface PriceSource {
   convertedFromGallons: boolean
 }
 
-export type Pricing =
-  /** The user states a price per unit; receipts are only a cross-check. */
-  | { mode: 'fixed-price'; pricePerUnit: Money; source?: PriceSource }
-  /** The price is whatever the receipts imply. Guarantees collected == spent. */
-  | { mode: 'from-receipts' }
+export type PricingMode =
+  /** The user states a price per unit on each stream; receipts cross-check it. */
+  | 'fixed-price'
+  /**
+   * The price is whatever the receipts imply. Guarantees collected == spent,
+   * but only makes sense with a single billed stream: one pot of receipts
+   * cannot say how it divides between litres and kilowatt-hours.
+   */
+  | 'from-receipts'
+
+/**
+ * One thing the car draws on, and the cost of drawing on it.
+ *
+ * A plain petrol car has one of these. A plug-in hybrid has two, and the one
+ * charged at home overnight is typically `billed: false` — its kilowatt-hours
+ * are worth reporting but nobody is being asked to pay for them.
+ */
+export interface EnergyStream {
+  id: StreamId
+  /** Decides the unit and whether a price can be looked up. */
+  kind: EnergyKind
+  /** Per 100 km, in whatever unit `kind` implies. */
+  consumptionPer100Km: number
+  pricePerUnit: Money
+  source?: PriceSource
+  /**
+   * Whether this stream's money enters the split. When false the quantity is
+   * still derived, attributed and displayed — it simply costs nobody anything.
+   */
+  billed: boolean
+}
 
 export interface Trip {
   id: string
@@ -107,11 +139,9 @@ export interface Trip {
   currency: string
   createdAt: string
   updatedAt: string
-  pricing: Pricing
-  /** What the car runs on. Decides the unit and whether a price can be looked up. */
-  energyKind: EnergyKind
-  /** Per 100 km, in whatever unit `energyKind` implies. */
-  consumptionPer100Km: number
+  pricingMode: PricingMode
+  /** What the car draws on. At least one; a hybrid has two. */
+  streams: EnergyStream[]
   /** Exactly one driver, or none. Not a flag on Person, which allowed two. */
   driverId: PersonId | null
   people: Person[]

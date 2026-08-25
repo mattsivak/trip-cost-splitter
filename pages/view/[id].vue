@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { calculateTrip } from '~/src/domain/trip/calculateTrip'
-import { formatEnergy } from '~/src/domain/pricing/energyKind'
+import { formatEnergyMix } from '~/src/domain/trip/energy'
 import type { Trip } from '~/src/domain/trip/types'
 
 /**
@@ -81,7 +81,7 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · what you owe` : 'Tr
           <p class="eyebrow">What you owe</p>
           <h1>{{ trip.title }}</h1>
           <p class="section__lede">
-            {{ formatKm(result.totalDistanceKm) }} · {{ formatEnergy(result.totalEnergy, trip.energyKind) }} ·
+            {{ formatKm(result.totalDistanceKm) }} · {{ formatEnergyMix(result.totalEnergy, trip.streams) }} ·
             {{ Math.round(result.totalExact / 100).toLocaleString('cs-CZ') }} {{ trip.currency }} in total
           </p>
         </div>

@@ -2,6 +2,9 @@ import { fromMajor } from '../domain/money/money'
 import { createId } from '../domain/trip/factories'
 import type { Trip } from '../domain/trip/types'
 
+/** Fixed rather than generated, so the segment figures below can name it. */
+const PETROL = 'demo-petrol'
+
 /**
  * The trip this app was originally built to settle, kept as a demo so the
  * calculator has something real to chew on.
@@ -34,12 +37,19 @@ export function createDemoTrip(): Trip {
     // Fixed price on purpose: at the real pump price the receipts come to far
     // more than the mileage accounts for, and the app should say so out loud.
     // Switch to `from-receipts` to see the whole 6 893,73 Kč divided instead.
-    pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(43) },
-    // Whether the van ran on petrol or diesel is not recorded. It changes
-    // nothing here: the unit is litres either way and the price is stated
-    // outright, so this is only the label on the field.
-    energyKind: 'gasoline',
-    consumptionPer100Km: 9.5,
+    pricingMode: 'fixed-price',
+    // One stream: the van was not a hybrid. Whether it ran on petrol or diesel
+    // is not recorded, and changes nothing here — the unit is litres either
+    // way and the price is stated outright, so this is only the field's label.
+    streams: [
+      {
+        id: PETROL,
+        kind: 'gasoline',
+        consumptionPer100Km: 9.5,
+        pricePerUnit: fromMajor(43),
+        billed: true,
+      },
+    ],
     rounding: 'nearest',
     currencyCode: 'CZK',
     paidAt: {},
@@ -97,13 +107,13 @@ function drive(id: string, from: string, to: string, distanceKm: number, occupan
   }
 }
 
-function idleStop(id: string, location: string, energy: number, occupantIds: string[]) {
+function idleStop(id: string, location: string, liters: number, occupantIds: string[]) {
   return {
     kind: 'idle' as const,
     id,
     label: `Canister burned waiting at ${location}`,
     location,
-    energy,
+    energy: { [PETROL]: liters },
     occupantIds,
   }
 }

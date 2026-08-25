@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ENERGY_KIND_LABELS, formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
+import { ENERGY_KIND_LABELS, unitLabelFor } from '~/src/domain/pricing/energyKind'
+import { formatEnergyMix } from '~/src/domain/trip/energy'
 import type { TripResult } from '~/src/domain/trip/result'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -7,9 +8,24 @@ const props = defineProps<{ trip: Trip; result: TripResult }>()
 
 const { money, exact } = useMoney(() => props.trip.currency)
 
-const priceNote = computed(() =>
-  props.trip.pricing.mode === 'from-receipts' ? 'derived from receipts' : 'set by hand',
+/** "Petrol" for an ordinary car; a hybrid draws on too many things to name one. */
+const energyLabel = computed(() =>
+  props.trip.streams.length === 1 && props.trip.streams[0]
+    ? ENERGY_KIND_LABELS[props.trip.streams[0].kind]
+    : 'Energy',
 )
+
+const energyValue = computed(() => formatEnergyMix(props.result.totalEnergy, props.trip.streams))
+
+const priceNote = computed(() => {
+  const how = props.trip.pricingMode === 'from-receipts' ? 'derived from receipts' : 'set by hand'
+  const prices = props.result.streams.map((stream) =>
+    stream.billed
+      ? `${exact(stream.derivedPricePerUnit)}/${unitLabelFor(stream.kind)}`
+      : `${unitLabelFor(stream.kind)} not billed`,
+  )
+  return `${prices.join(' · ')}, ${how}`
+})
 </script>
 
 <template>
@@ -27,11 +43,9 @@ const priceNote = computed(() =>
     </div>
 
     <div class="readout__cell">
-      <span class="readout__label">{{ ENERGY_KIND_LABELS[trip.energyKind] }}</span>
-      <strong class="readout__value">{{ formatEnergy(result.totalEnergy, trip.energyKind) }}</strong>
-      <span class="readout__note"
-        >{{ exact(result.derivedPricePerUnit) }}/{{ unitLabelFor(trip.energyKind) }}, {{ priceNote }}</span
-      >
+      <span class="readout__label">{{ energyLabel }}</span>
+      <strong class="readout__value">{{ energyValue }}</strong>
+      <span class="readout__note">{{ priceNote }}</span>
     </div>
 
     <div class="readout__cell">

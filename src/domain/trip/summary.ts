@@ -1,5 +1,6 @@
 import { formatMoney } from '../money/money'
 import { formatEnergy } from '../pricing/energyKind'
+import { formatEnergyMix } from './energy'
 import type { TripResult } from './result'
 import type { Trip } from './types'
 
@@ -16,8 +17,16 @@ export function formatTripSummary(trip: Trip, result: TripResult): string {
   const lines: string[] = [
     `${trip.title} — fuel split`,
     '',
-    `${round1(result.totalDistanceKm)} km · ${formatEnergy(result.totalEnergy, trip.energyKind)} · ${formatMoney(result.totalExact, trip.currency)} total`,
+    `${round1(result.totalDistanceKm)} km · ${formatEnergyMix(result.totalEnergy, trip.streams)} · ${formatMoney(result.totalExact, trip.currency)} total`,
   ]
+
+  // Otherwise the kilowatt-hours sit in the line above with no explanation and
+  // somebody reasonably asks why they are not paying for them.
+  const free = result.streams.filter((stream) => !stream.billed && stream.quantity > 0)
+  if (free.length > 0) {
+    const quantities = free.map((stream) => formatEnergy(stream.quantity, stream.kind)).join(' and ')
+    lines.push(`The ${quantities} is not being charged to anyone.`)
+  }
 
   if (result.overheadTotal > 0) {
     lines.push(`Of which ${formatMoney(result.overheadTotal, trip.currency)} is tolls, parking and the like.`)

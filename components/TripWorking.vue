@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatEnergy } from '~/src/domain/pricing/energyKind'
+import { formatEnergyMix } from '~/src/domain/trip/energy'
 import type { TripResult } from '~/src/domain/trip/result'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -44,7 +44,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
               </span>
             </td>
             <td class="is-figure" data-label="Distance">{{ distanceFor(segment.segmentId) }}</td>
-            <td class="is-figure" data-label="Used">{{ formatEnergy(segment.energy, trip.energyKind) }}</td>
+            <td class="is-figure" data-label="Used">{{ formatEnergyMix(segment.energy, trip.streams) }}</td>
             <td data-label="Who was aboard">{{ whoWasOn(segment.occupantIds) }}</td>
             <td class="is-figure" data-label="Each">{{ exact(segment.costPerOccupant) }}</td>
           </tr>
@@ -78,7 +78,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
                 }}</small>
               </span>
             </td>
-            <td class="is-figure" data-label="Used">{{ formatEnergy(person.energy, trip.energyKind) }}</td>
+            <td class="is-figure" data-label="Used">{{ formatEnergyMix(person.energy, trip.streams) }}</td>
             <td class="is-figure" data-label="Exact">{{ exact(person.exactTotal) }}</td>
             <td class="is-figure" data-label="Rounded">{{ money(person.payable) }}</td>
           </tr>

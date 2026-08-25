@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
+import { unitLabelFor } from '~/src/domain/pricing/energyKind'
+import { formatEnergyMix } from '~/src/domain/trip/energy'
 import { fromMajor, toMajor } from '~/src/domain/money/money'
 import { createOverhead, createReceipt } from '~/src/domain/trip/factories'
 import type { TripResult } from '~/src/domain/trip/result'
@@ -13,17 +14,28 @@ const copied = ref(false)
 
 const summary = computed(() => formatTripSummary(props.trip, props.result))
 
-function setMode(mode: Trip['pricing']['mode']) {
-  props.trip.pricing = mode === 'from-receipts' ? { mode } : { mode: 'fixed-price', pricePerUnit: 0 }
+function setMode(mode: Trip['pricingMode']) {
+  props.trip.pricingMode = mode
 }
+
+/**
+ * The units on the "set a price" toggle. A hybrid is priced per L and per kWh
+ * at once, so the toggle names both rather than picking a winner.
+ */
+const priceUnits = computed(() =>
+  props.trip.streams
+    .filter((stream) => stream.billed)
+    .map((stream) => unitLabelFor(stream.kind))
+    .join(' and '),
+)
 
 /** What the split was measured from, in the same units the rest of the page uses. */
 function basisFor(segmentId: string): string {
   const segment = props.trip.segments.find((entry) => entry.id === segmentId)
   if (!segment) return ''
-  if (segment.kind === 'idle') return `${formatEnergy(segment.energy, props.trip.energyKind)} parked`
+  if (segment.kind === 'idle') return `${formatEnergyMix(segment.energy, props.trip.streams)} parked`
   if (segment.directEnergy !== undefined)
-    return `${formatEnergy(segment.directEnergy, props.trip.energyKind)} measured`
+    return `${formatEnergyMix(segment.directEnergy, props.trip.streams)} measured`
   return formatKm(segment.distanceKm)
 }
 
@@ -62,23 +74,23 @@ async function copy() {
       </div>
 
       <div class="button-row" style="margin-bottom: 16px">
-        <label class="toggle" :class="{ 'is-on': trip.pricing.mode === 'from-receipts' }">
+        <label class="toggle" :class="{ 'is-on': trip.pricingMode === 'from-receipts' }">
           <input
             type="radio"
-            :checked="trip.pricing.mode === 'from-receipts'"
+            :checked="trip.pricingMode === 'from-receipts'"
             :name="`pricing-${trip.id}`"
             @change="setMode('from-receipts')"
           />
           <span>Price from the receipts</span>
         </label>
-        <label class="toggle" :class="{ 'is-on': trip.pricing.mode === 'fixed-price' }">
+        <label class="toggle" :class="{ 'is-on': trip.pricingMode === 'fixed-price' }">
           <input
             type="radio"
-            :checked="trip.pricing.mode === 'fixed-price'"
+            :checked="trip.pricingMode === 'fixed-price'"
             :name="`pricing-${trip.id}`"
             @change="setMode('fixed-price')"
           />
-          <span>Set a price per {{ unitLabelFor(trip.energyKind) }}</span>
+          <span>Set a price per {{ priceUnits || unitLabelFor('gasoline') }}</span>
         </label>
       </div>
 
@@ -178,7 +190,7 @@ async function copy() {
                   <strong>{{ person.name }}</strong>
                   <small>
                     {{ person.isDriver ? 'driver · ' : ''
-                    }}{{ formatEnergy(person.energy, trip.energyKind) }} over
+                    }}{{ formatEnergyMix(person.energy, trip.streams) }} over
                     {{ person.segmentIds.length }}
                     {{ person.segmentIds.length === 1 ? 'part' : 'parts' }}
                   </small>
@@ -234,7 +246,7 @@ async function copy() {
                 </span>
               </td>
               <td class="is-figure" data-label="Basis">{{ basisFor(segment.segmentId) }}</td>
-              <td class="is-figure" data-label="Fuel">{{ formatEnergy(segment.energy, trip.energyKind) }}</td>
+              <td class="is-figure" data-label="Fuel">{{ formatEnergyMix(segment.energy, trip.streams) }}</td>
               <td class="is-figure" data-label="People">{{ segment.occupantIds.length }}</td>
               <td class="is-figure" data-label="Cost">{{ exact(segment.cost) }}</td>
               <td class="is-figure" data-label="Each">{{ exact(segment.costPerOccupant) }}</td>

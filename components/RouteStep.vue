@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { consumptionLabelFor, formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
+import { consumptionLabelFor, ENERGY_KIND_LABELS, unitLabelFor } from '~/src/domain/pricing/energyKind'
 import { insertAfter } from '~/src/domain/list'
 import { createDrive, createIdle, driveLabel } from '~/src/domain/trip/factories'
-import { energyForSegment } from '~/src/domain/trip/energy'
+import { energyMixForSegment, formatEnergyMix } from '~/src/domain/trip/energy'
 import { routeToSegments } from '~/src/domain/routing/routeToSegments'
 import { reanchorIdleStops } from '~/src/domain/trip/reanchorIdleStops'
 import type { GeoPoint } from '~/src/domain/routing/types'
-import type { Trip } from '~/src/domain/trip/types'
+import type { DriveSegment, EnergyStream, StreamId, Trip } from '~/src/domain/trip/types'
 
 /**
  * The trip object is reactive and owned by the page; steps edit it in place.
@@ -105,8 +105,25 @@ function relabel(segment: Trip['segments'][number]) {
   if (segment.kind === 'drive') segment.label = driveLabel(segment.from, segment.to)
 }
 
-function quantity(segment: Trip['segments'][number]): number {
-  return energyForSegment(segment, props.trip)
+function quantity(segment: Trip['segments'][number]): string {
+  return formatEnergyMix(energyMixForSegment(segment, props.trip.streams), props.trip.streams)
+}
+
+/**
+ * Set or clear one stream's consumption override on a drive.
+ *
+ * Blanking the box has to remove the key rather than store a zero, so the leg
+ * goes back to falling through to the trip-wide figure.
+ */
+function setConsumption(segment: DriveSegment, streamId: StreamId, raw: string) {
+  const next = writeFigure(segment.consumptionPer100Km, streamId, raw)
+  if (next) segment.consumptionPer100Km = next
+  else delete segment.consumptionPer100Km
+}
+
+/** The label above a per-stream input, which only needs naming when there are two. */
+function figureLabel(stream: EnergyStream, singular: string): string {
+  return props.trip.streams.length > 1 ? ENERGY_KIND_LABELS[stream.kind] : singular
 }
 </script>
 
@@ -130,9 +147,9 @@ function quantity(segment: Trip['segments'][number]): number {
           <textarea v-model="stopsDraft" rows="6" placeholder="Šumperk&#10;Olomouc&#10;Milovice" />
         </label>
         <div class="stack stack--tight">
-          <label class="field">
-            <span>Consumption {{ consumptionLabelFor(trip.energyKind) }}</span>
-            <input v-model.number="trip.consumptionPer100Km" type="number" min="0" step="0.1" />
+          <label v-for="stream in trip.streams" :key="stream.id" class="field">
+            <span> {{ figureLabel(stream, 'Consumption') }} {{ consumptionLabelFor(stream.kind) }} </span>
+            <input v-model.number="stream.consumptionPer100Km" type="number" min="0" step="0.1" />
           </label>
           <p class="hint">Used for any drive without its own figure.</p>
           <EnergyPrice :trip="trip" show-mode-note />
@@ -209,7 +226,7 @@ function quantity(segment: Trip['segments'][number]): number {
             <h3>{{ segment.label || 'Untitled' }}</h3>
             <span class="segment__meta">
               {{ segment.kind === 'drive' ? segment.distanceSource : 'measured' }} ·
-              {{ formatEnergy(quantity(segment), trip.energyKind) }}
+              {{ quantity(segment) }}
             </span>
           </div>
           <div class="button-row">
@@ -248,14 +265,16 @@ function quantity(segment: Trip['segments'][number]): number {
             <span>Distance km</span>
             <input v-model.number="segment.distanceKm" type="number" min="0" step="0.1" />
           </label>
-          <label class="field">
-            <span>Consumption</span>
+          <label v-for="stream in trip.streams" :key="stream.id" class="field">
+            <span>{{ figureLabel(stream, 'Consumption') }}</span>
             <input
-              v-model.number="segment.consumptionPer100Km"
+              :value="readFigure(segment.consumptionPer100Km, stream.id)"
               type="number"
               min="0"
               step="0.1"
-              :placeholder="String(trip.consumptionPer100Km)"
+              :placeholder="String(stream.consumptionPer100Km)"
+              :aria-label="`${ENERGY_KIND_LABELS[stream.kind]} consumption for ${segment.label || 'this drive'}`"
+              @input="setConsumption(segment, stream.id, ($event.target as HTMLInputElement).value)"
             />
           </label>
         </div>
@@ -269,9 +288,22 @@ function quantity(segment: Trip['segments'][number]): number {
             <span>Where</span>
             <input v-model="segment.location" />
           </label>
-          <label class="field">
-            <span>{{ unitLabelFor(trip.energyKind) }} used</span>
-            <input v-model.number="segment.energy" type="number" min="0" step="0.1" />
+          <label v-for="stream in trip.streams" :key="stream.id" class="field">
+            <span>{{ unitLabelFor(stream.kind) }} used</span>
+            <input
+              :value="readFigure(segment.energy, stream.id)"
+              type="number"
+              min="0"
+              step="0.1"
+              :aria-label="`${ENERGY_KIND_LABELS[stream.kind]} used while ${segment.label || 'waiting'}`"
+              @input="
+                segment.energy = writeRequiredFigure(
+                  segment.energy,
+                  stream.id,
+                  ($event.target as HTMLInputElement).value,
+                )
+              "
+            />
           </label>
         </div>
 

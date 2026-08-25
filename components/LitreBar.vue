@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { formatEnergy, type EnergyKind } from '~/src/domain/pricing/energyKind'
 /**
  * The signature element: one segment's energy, drawn as the people sharing it.
  * Toggling somebody on or off visibly re-cuts the bar, which is the whole
  * argument the app is making — a share is a slice of the fuel you were there
  * for, not an abstract number in a table.
+ *
+ * The bar knows nothing about units. A hybrid's litres and kilowatt-hours
+ * cannot be added into one length, so the caller decides what a slice is worth
+ * and hands over a plain `weight` plus the `label` to show on hover.
  */
 const props = defineProps<{
-  slices: Array<{ id: string; name: string; energy: number; isDriver: boolean }>
-  energyKind: EnergyKind
+  slices: Array<{ id: string; name: string; weight: number; label: string; isDriver: boolean }>
   emptyLabel?: string
 }>()
 
-const total = computed(() => props.slices.reduce((sum, slice) => sum + slice.energy, 0))
+const total = computed(() => props.slices.reduce((sum, slice) => sum + slice.weight, 0))
 </script>
 
 <template>
@@ -34,8 +36,8 @@ const total = computed(() => props.slices.reduce((sum, slice) => sum + slice.ene
       :key="slice.id"
       class="litrebar__slice"
       :class="{ 'litrebar__slice--driver': slice.isDriver }"
-      :style="{ flexGrow: slice.energy }"
-      :title="`${slice.name} · ${formatEnergy(slice.energy, energyKind)}`"
+      :style="{ flexGrow: slice.weight }"
+      :title="`${slice.name} · ${slice.label}`"
     >
       {{ slice.name }}
     </span>

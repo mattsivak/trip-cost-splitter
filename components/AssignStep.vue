@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { formatEnergy } from '~/src/domain/pricing/energyKind'
-import { energyForSegment } from '~/src/domain/trip/energy'
+import { energyMixForSegment, formatEnergyMix, type EnergyMix } from '~/src/domain/trip/energy'
 import type { PersonId, Segment, Trip } from '~/src/domain/trip/types'
 
 const props = defineProps<{ trip: Trip }>()
@@ -23,25 +22,61 @@ function applyToRest(index: number) {
   }
 }
 
+function mixFor(segment: Segment): EnergyMix {
+  return energyMixForSegment(segment, props.trip.streams)
+}
+
+function label(segment: Segment): string {
+  return formatEnergyMix(mixFor(segment), props.trip.streams)
+}
+
+/**
+ * How long a slice should be.
+ *
+ * The bar argues about money, so it is sized by money: litres and
+ * kilowatt-hours have no common length, and a stream nobody is billed for
+ * should not push anyone's slice out. Where no price is set yet — a brand new
+ * trip, or `from-receipts` before the receipts arrive — the first stream's
+ * quantity stands in, so the bar is drawn rather than blank.
+ */
+function weightFor(segment: Segment): number {
+  const mix = mixFor(segment)
+  const priced = props.trip.streams.reduce(
+    (sum, stream) => sum + (stream.billed ? (mix[stream.id] ?? 0) * stream.pricePerUnit : 0),
+    0,
+  )
+  if (priced > 0) return priced
+
+  const first = props.trip.streams.find((stream) => stream.billed) ?? props.trip.streams[0]
+  return first ? (mix[first.id] ?? 0) : 0
+}
+
+/** What one occupant's share of a segment comes to, written out. */
+function eachLabel(segment: Segment, count: number): string {
+  if (!count) return ''
+
+  const mix = mixFor(segment)
+  const each: EnergyMix = {}
+  for (const stream of props.trip.streams) each[stream.id] = (mix[stream.id] ?? 0) / count
+  return formatEnergyMix(each, props.trip.streams)
+}
+
 function slicesFor(segment: Segment) {
-  const quantity = energyForSegment(segment, props.trip)
   const occupants = segment.occupantIds.filter((id) => props.trip.people.some((person) => person.id === id))
-  const share = occupants.length ? quantity / occupants.length : 0
+  const weight = occupants.length ? weightFor(segment) / occupants.length : 0
+  const label = eachLabel(segment, occupants.length)
 
   return occupants.flatMap((personId) => {
     const person = props.trip.people.find((entry) => entry.id === personId)
     if (!person) return []
-    return [{ id: person.id, name: person.name, energy: share, isDriver: person.id === props.trip.driverId }]
+    return [{ id: person.id, name: person.name, weight, label, isDriver: person.id === props.trip.driverId }]
   })
 }
 
 function shareLabels(segment: Segment): Record<PersonId, string> {
-  const quantity = energyForSegment(segment, props.trip)
-  const count = segment.occupantIds.length
-  if (!count) return {}
-
-  const each = formatEnergy(quantity / count, props.trip.energyKind)
-  return Object.fromEntries(segment.occupantIds.map((personId) => [personId, each]))
+  const text = eachLabel(segment, segment.occupantIds.length)
+  if (!text) return {}
+  return Object.fromEntries(segment.occupantIds.map((personId) => [personId, text]))
 }
 </script>
 
@@ -72,18 +107,13 @@ function shareLabels(segment: Segment): Record<PersonId, string> {
         <div class="segment__title">
           <h3>{{ segment.label || 'Untitled' }}</h3>
           <span class="segment__meta">
-            {{ segment.kind === 'drive' ? formatKm(segment.distanceKm) : 'idling' }} ·
-            {{ formatEnergy(energyForSegment(segment, trip), trip.energyKind) }} ·
+            {{ segment.kind === 'drive' ? formatKm(segment.distanceKm) : 'idling' }} · {{ label(segment) }} ·
             {{ segment.occupantIds.length }} assigned
           </span>
         </div>
       </div>
 
-      <LitreBar
-        :slices="slicesFor(segment)"
-        :energy-kind="trip.energyKind"
-        empty-label="Nobody assigned — this falls to the driver"
-      />
+      <LitreBar :slices="slicesFor(segment)" empty-label="Nobody assigned — this falls to the driver" />
 
       <OccupantToggles
         :people="trip.people"

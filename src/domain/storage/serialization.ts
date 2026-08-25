@@ -1,17 +1,26 @@
 import type { RoundingMode } from '../money/money'
 import { isEnergyKind, type EnergyKind } from '../pricing/energyKind'
-import { createId, createTrip } from '../trip/factories'
+import { createId, createStream, createTrip } from '../trip/factories'
 import type {
   DistanceSource,
+  EnergyStream,
   OverheadCost,
   Person,
   PriceSource,
-  Pricing,
+  PricingMode,
   Receipt,
   RoutePoint,
   Segment,
+  StreamId,
   Trip,
 } from '../trip/types'
+
+/** What a segment's per-stream figures are read against. */
+interface StreamContext {
+  known: ReadonlySet<StreamId>
+  /** Where a pre-streams trip's single scalar figure lands. */
+  primaryId: StreamId
+}
 
 /**
  * Rebuild a Trip from data we did not create: localStorage written by an older
@@ -30,6 +39,12 @@ export function parseTrip(value: unknown): Trip | null {
     typeof value.driverId === 'string' && knownPeople.has(value.driverId) ? value.driverId : null
 
   const base = createTrip()
+  const streams = parseStreams(value)
+  const streamContext: StreamContext = {
+    known: new Set(streams.map((stream) => stream.id)),
+    primaryId: streams[0]!.id,
+  }
+
   return {
     ...base,
     id: str(value.id) || base.id,
@@ -37,15 +52,12 @@ export function parseTrip(value: unknown): Trip | null {
     currency: str(value.currency) || 'Kč',
     createdAt: str(value.createdAt) || base.createdAt,
     updatedAt: str(value.updatedAt) || base.updatedAt,
-    pricing: parsePricing(value.pricing),
-    energyKind: parseEnergyKind(value.energyKind),
-    // `defaultConsumptionLPer100Km` is what trips saved before the app counted
-    // anything but litres called this.
-    consumptionPer100Km: num(value.consumptionPer100Km, num(value.defaultConsumptionLPer100Km, 7)),
+    pricingMode: parsePricingMode(value),
+    streams,
     driverId,
     people,
     routePoints: asArray(value.routePoints).flatMap(parseRoutePoint),
-    segments: asArray(value.segments).flatMap((segment) => parseSegment(segment, knownPeople)),
+    segments: asArray(value.segments).flatMap((segment) => parseSegment(segment, knownPeople, streamContext)),
     overheadCosts: asArray(value.overheadCosts).flatMap((cost) => parseOverhead(cost, knownPeople)),
     receipts: asArray(value.receipts).flatMap(parseReceipt),
     rounding: parseRounding(value.rounding),
@@ -74,7 +86,7 @@ function parseRoutePoint(value: unknown): RoutePoint[] {
   return [point]
 }
 
-function parseSegment(value: unknown, knownPeople: ReadonlySet<string>): Segment[] {
+function parseSegment(value: unknown, knownPeople: ReadonlySet<string>, streams: StreamContext): Segment[] {
   if (!isRecord(value)) return []
 
   const id = str(value.id) || createId('segment')
@@ -87,8 +99,9 @@ function parseSegment(value: unknown, knownPeople: ReadonlySet<string>): Segment
       kind: 'idle',
       id,
       label: str(value.label) || 'Waiting',
-      // `liters` is the name trips saved before kWh existed.
-      energy: pickNumber(value.energy, value.liters) ?? 0,
+      // `liters` is the name trips saved before kWh existed, and before that
+      // figure became one-per-stream.
+      energy: parseMix(value.energy, value.liters, streams) ?? {},
       occupantIds,
     }
     if (str(value.location)) idle.location = str(value.location)
@@ -110,9 +123,9 @@ function parseSegment(value: unknown, knownPeople: ReadonlySet<string>): Segment
   }
   if (Number.isFinite(value.durationSeconds)) drive.durationSeconds = value.durationSeconds as number
   // The second name in each pair is what trips saved before kWh existed.
-  const consumption = pickNumber(value.consumptionPer100Km, value.consumptionLPer100Km)
+  const consumption = parseMix(value.consumptionPer100Km, value.consumptionLPer100Km, streams)
   if (consumption !== null) drive.consumptionPer100Km = consumption
-  const measured = pickNumber(value.directEnergy, value.directLiters)
+  const measured = parseMix(value.directEnergy, value.directLiters, streams)
   if (measured !== null) drive.directEnergy = measured
   if (str(value.notes)) drive.notes = str(value.notes)
   return [drive]
@@ -162,15 +175,78 @@ function parseReceipt(value: unknown): Receipt[] {
   return [receipt]
 }
 
-function parsePricing(value: unknown): Pricing {
-  if (isRecord(value) && value.mode === 'from-receipts') return { mode: 'from-receipts' }
+/**
+ * The trip-wide pricing mode.
+ *
+ * Trips saved before the price moved onto each stream carry it as
+ * `pricing: { mode }`; newer ones carry it flat.
+ */
+function parsePricingMode(value: Record<string, unknown>): PricingMode {
+  if (value.pricingMode === 'from-receipts') return 'from-receipts'
+  if (value.pricingMode === 'fixed-price') return 'fixed-price'
+  const legacy = isRecord(value.pricing) ? value.pricing : null
+  return legacy?.mode === 'from-receipts' ? 'from-receipts' : 'fixed-price'
+}
 
-  // `pricePerLiter` is the name trips saved before kWh existed.
-  const price = isRecord(value) ? (pickNumber(value.pricePerUnit, value.pricePerLiter) ?? 0) : 0
-  const pricing: Pricing = { mode: 'fixed-price', pricePerUnit: Math.round(price) }
+/**
+ * Every energy source on the trip.
+ *
+ * A trip saved before the car could run on more than one thing has its
+ * `energyKind`, its single consumption figure and its single price folded into
+ * one stream, which is exactly what it always meant. There is always at least
+ * one stream: a trip that draws on nothing cannot be edited back to life.
+ */
+function parseStreams(value: Record<string, unknown>): EnergyStream[] {
+  const listed = asArray(value.streams).flatMap(parseStream)
+  if (listed.length > 0) return listed
 
-  const source = parsePriceSource(isRecord(value) ? value.source : null)
-  return source ? { ...pricing, source } : pricing
+  const legacyPricing = isRecord(value.pricing) ? value.pricing : {}
+  // `pricePerLiter` and `defaultConsumptionLPer100Km` are the names trips
+  // saved before the app counted anything but litres.
+  const stream = createStream(parseEnergyKind(value.energyKind), {
+    consumptionPer100Km: num(value.consumptionPer100Km, num(value.defaultConsumptionLPer100Km, 7)),
+    pricePerUnit: Math.round(pickNumber(legacyPricing.pricePerUnit, legacyPricing.pricePerLiter) ?? 0),
+    billed: true,
+  })
+
+  const source = parsePriceSource(legacyPricing.source)
+  return [source ? { ...stream, source } : stream]
+}
+
+function parseStream(value: unknown): EnergyStream[] {
+  if (!isRecord(value)) return []
+
+  const stream = createStream(parseEnergyKind(value.kind), {
+    id: str(value.id) || createId('stream'),
+    consumptionPer100Km: num(value.consumptionPer100Km, 0),
+    pricePerUnit: Math.round(num(value.pricePerUnit, 0)),
+    // Absent means billed: every trip that predates the flag was.
+    billed: value.billed !== false,
+  })
+
+  const source = parsePriceSource(value.source)
+  return [source ? { ...stream, source } : stream]
+}
+
+/**
+ * A per-stream set of figures, dropping any stream the trip no longer has.
+ *
+ * `legacy` is the single number the same field held before streams existed;
+ * it lands on the primary stream. Returns null when there is nothing to
+ * record, so an absent override stays absent rather than becoming an empty
+ * object that reads as "explicitly nothing".
+ */
+function parseMix(value: unknown, legacy: unknown, streams: StreamContext): Record<StreamId, number> | null {
+  if (isRecord(value)) {
+    const mix: Record<StreamId, number> = {}
+    for (const [streamId, quantity] of Object.entries(value)) {
+      if (streams.known.has(streamId) && Number.isFinite(quantity)) mix[streamId] = quantity as number
+    }
+    return Object.keys(mix).length > 0 ? mix : null
+  }
+
+  const single = pickNumber(value, legacy)
+  return single === null ? null : { [streams.primaryId]: single }
 }
 
 function parsePaidAt(value: unknown, knownPeople: ReadonlySet<string>): Record<string, string> {

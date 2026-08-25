@@ -28,16 +28,14 @@ async function startTrip() {
 
   // Price and currency are applied together or not at all: a euro figure under
   // a Kč label would be worse than no figure.
-  const { price } = await fetchLocalPrice(trip.energyKind)
-  if (price) {
-    trip.pricing = {
-      mode: 'fixed-price',
-      pricePerUnit: priceToMoney(price),
-      source: {
-        countryName: price.countryName,
-        fetchedAt: price.fetchedAt,
-        convertedFromGallons: price.convertedFromGallons,
-      },
+  const stream = trip.streams[0]
+  const { price } = stream ? await fetchLocalPrice(stream.kind) : { price: null }
+  if (price && stream) {
+    stream.pricePerUnit = priceToMoney(price)
+    stream.source = {
+      countryName: price.countryName,
+      fetchedAt: price.fetchedAt,
+      convertedFromGallons: price.convertedFromGallons,
     }
     trip.currency = currencySymbol(price.currency)
     // Kept as well as the symbol: a payment link needs the ISO code.

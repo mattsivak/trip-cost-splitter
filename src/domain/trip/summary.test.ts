@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { fromMajor } from '../money/money'
 import { calculateTrip } from './calculateTrip'
 import { formatTripSummary } from './summary'
-import { makeDrive, makeTrip } from './testing'
+import { makeDrive, makeStream, makeTrip } from './testing'
 
 const trip = makeTrip({
   title: 'Weekend run',
-  pricing: { mode: 'from-receipts' },
-  consumptionPer100Km: 10,
+  pricingMode: 'from-receipts',
+  streams: [makeStream({ consumptionPer100Km: 10 })],
   segments: [
     makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] }),
     makeDrive({ id: 'd2', distanceKm: 100, occupantIds: ['ann', 'bo'] }),
@@ -54,8 +54,46 @@ describe('formatTripSummary', () => {
   })
 
   it('reports the trip in its own unit', () => {
-    const electric = makeTrip({ ...trip, energyKind: 'electric' })
+    const electric = makeTrip({
+      ...trip,
+      streams: [makeStream({ kind: 'electric', consumptionPer100Km: 10 })],
+    })
     expect(formatTripSummary(electric, calculateTrip(electric))).toContain('200 km · 20,0 kWh')
+  })
+
+  it('writes both units for a hybrid', () => {
+    const hybrid = makeTrip({
+      ...trip,
+      streams: [
+        makeStream({ consumptionPer100Km: 10 }),
+        makeStream({ kind: 'electric', consumptionPer100Km: 5, billed: false }),
+      ],
+    })
+    expect(formatTripSummary(hybrid, calculateTrip(hybrid))).toContain('200 km · 20,0 L + 10,0 kWh')
+  })
+
+  it('says outright that the free kilowatt-hours are not being charged', () => {
+    const hybrid = makeTrip({
+      ...trip,
+      streams: [
+        makeStream({ consumptionPer100Km: 10 }),
+        makeStream({ kind: 'electric', consumptionPer100Km: 5, billed: false }),
+      ],
+    })
+    expect(formatTripSummary(hybrid, calculateTrip(hybrid))).toContain(
+      'The 10,0 kWh is not being charged to anyone.',
+    )
+  })
+
+  it('stays quiet about a stream that is actually being billed', () => {
+    const hybrid = makeTrip({
+      ...trip,
+      streams: [
+        makeStream({ consumptionPer100Km: 10 }),
+        makeStream({ kind: 'electric', consumptionPer100Km: 5, billed: true }),
+      ],
+    })
+    expect(formatTripSummary(hybrid, calculateTrip(hybrid))).not.toContain('not being charged')
   })
 
   it('mentions overhead only when there is some', () => {

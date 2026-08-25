@@ -13,19 +13,33 @@ Live: <https://trips.mattsivak.me/>
 
 Two ideas carry the whole app.
 
-**Litres are the fair-share basis.** A drive's fuel comes from its distance and
-the car's consumption; an idle stop's fuel is measured in litres directly.
-Either way a segment is just _some fuel plus the people who were there for it_,
-and that fuel is split evenly between them. Ride half the trip, pay for half the
-trip's fuel.
+**Energy is the fair-share basis.** A drive's fuel comes from its distance and
+the car's consumption; an idle stop's is measured directly. Either way a segment
+is just _some fuel plus the people who were there for it_, and that fuel is
+split evenly between them. Ride half the trip, pay for half the trip's fuel.
+
+A car can draw on more than one thing at once. A plug-in hybrid has two energy
+streams — petrol and electric — each with its own consumption figure, its own
+price per unit, and its own answer to _is anyone being billed for this?_ Both
+run across the same kilometres, so the legs where the battery was carrying the
+trip are the ones where you type a low petrol figure and a real kWh figure; the
+rest fall through to the trip-wide defaults. A stream you are not billed for is
+still measured, still attributed to whoever was in the car, and still shown
+everywhere — it simply costs them nothing. That is the battery you charged at
+home, and the summary for the group chat says so out loud.
 
 **Receipts are the ground truth for money.** They are what actually left the
 driver's pocket. You can price the trip two ways:
 
-| Mode            | What it does                                                                                                           | When to use it                                    |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `from-receipts` | Divides exactly the receipt total, in proportion to each person's litres. The price per litre is derived, not entered. | Normal case. Guarantees collected equals spent.   |
-| `fixed-price`   | You state a price per litre. Receipts become a cross-check, and the app reports the gap.                               | When you want to bill mileage at a standard rate. |
+| Mode            | What it does                                                                                                         | When to use it                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `from-receipts` | Divides exactly the receipt total, in proportion to each person's share. The price per unit is derived, not entered. | Normal case. Guarantees collected equals spent.   |
+| `fixed-price`   | You state a price per unit on each stream. Receipts become a cross-check, and the app reports the gap.               | When you want to bill mileage at a standard rate. |
+
+`from-receipts` needs exactly one billed stream: a single pot of receipts cannot
+say how it divides between litres and kilowatt-hours. With more than one, the
+app says so rather than guessing, and puts the whole pot on the first — so
+collected still equals spent.
 
 Rounding lands on the driver: passengers pay whole units, and the driver pays
 whatever is left of the whole-unit trip total. The amount collected always
@@ -81,9 +95,10 @@ Bulletin and the EIA. Ten of those countries publish per gallon, which is
 converted. The price and the currency are applied together or not at all, and
 the field says where the number came from until you type over it.
 
-Electric trips are deliberately left blank: charging prices vary far more by
-where you plug in than by which country you are in, and a national average
-would be confidently wrong for most people.
+Electric is deliberately left blank: charging prices vary far more by where you
+plug in than by which country you are in, and a national average would be
+confidently wrong for most people. It is also why a hybrid's electric stream
+arrives unbilled — the common case is a battery filled at home.
 
 None of this blocks anything. If the lookup is slow, broken or unsure of the
 country, the trip opens at zero and the app simply asks for a price.

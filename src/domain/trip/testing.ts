@@ -1,7 +1,27 @@
 import { fromMajor } from '../money/money'
-import type { DriveSegment, IdleSegment, Trip } from './types'
+import type { EnergyKind } from '../pricing/energyKind'
+import type { DriveSegment, EnergyStream, IdleSegment, Trip } from './types'
+
+/**
+ * Stable stream ids for tests. Real trips generate theirs, but a test that has
+ * to read `segment.energy[someGeneratedId]` says nothing about its own intent.
+ */
+export const PETROL = 'stream-petrol'
+export const VOLTS = 'stream-volts'
 
 /** Test-only builders. Keeps the intent of each test visible instead of buried. */
+export function makeStream(overrides: Partial<EnergyStream> = {}): EnergyStream {
+  const kind: EnergyKind = overrides.kind ?? 'gasoline'
+  return {
+    id: kind === 'electric' ? VOLTS : PETROL,
+    kind,
+    consumptionPer100Km: 10,
+    pricePerUnit: fromMajor(43),
+    billed: true,
+    ...overrides,
+  }
+}
+
 export function makeTrip(overrides: Partial<Trip> = {}): Trip {
   return {
     id: 'trip-1',
@@ -9,9 +29,8 @@ export function makeTrip(overrides: Partial<Trip> = {}): Trip {
     currency: 'Kč',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(43) },
-    energyKind: 'gasoline',
-    consumptionPer100Km: 10,
+    pricingMode: 'fixed-price',
+    streams: [makeStream()],
     driverId: 'ann',
     people: [
       { id: 'ann', name: 'Ann' },
@@ -43,5 +62,12 @@ export function makeDrive(overrides: Partial<DriveSegment> = {}): DriveSegment {
 }
 
 export function makeIdle(overrides: Partial<IdleSegment> = {}): IdleSegment {
-  return { kind: 'idle', id: 'idle-1', label: 'Waiting', energy: 10, occupantIds: ['ann'], ...overrides }
+  return {
+    kind: 'idle',
+    id: 'idle-1',
+    label: 'Waiting',
+    energy: { [PETROL]: 10 },
+    occupantIds: ['ann'],
+    ...overrides,
+  }
 }

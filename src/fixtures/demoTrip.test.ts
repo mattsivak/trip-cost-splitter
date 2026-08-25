@@ -3,6 +3,9 @@ import { sumMoney, toMajor } from '../domain/money/money'
 import { calculateTrip } from '../domain/trip/calculateTrip'
 import { createDemoTrip } from './demoTrip'
 
+/** The demo runs on one thing; this is what its single stream is called. */
+const PETROL = createDemoTrip().streams[0]!.id
+
 /**
  * The golden test. Unlike the one it replaces — which asserted that
  * hand-entered per-leg costs added up to hand-entered per-person totals —
@@ -15,7 +18,7 @@ describe('the Volkswagen trip, at a fixed pump price', () => {
   it('derives the fuel from the route, not from stated costs', () => {
     expect(result.totalDistanceKm).toBeCloseTo(793.3, 1)
     // 793.3 km at 9.5 L/100km, plus the 20 L canister.
-    expect(result.totalEnergy).toBeCloseTo(95.3635, 4)
+    expect(result.totalEnergy[PETROL]).toBeCloseTo(95.3635, 4)
     expect(toMajor(result.fuelTotal)).toBe(4100.63)
   })
 
@@ -46,7 +49,7 @@ describe('the Volkswagen trip, at a fixed pump price', () => {
 })
 
 describe('the same trip, priced from the receipts', () => {
-  const result = calculateTrip({ ...createDemoTrip(), pricing: { mode: 'from-receipts' } })
+  const result = calculateTrip({ ...createDemoTrip(), pricingMode: 'from-receipts' })
 
   it('leaves nothing on the table', () => {
     expect(result.fuelTotal).toBe(result.receiptsTotal)
@@ -58,7 +61,7 @@ describe('the same trip, priced from the receipts', () => {
     // 6 893,73 Kč of fuel against 95,4 L of mileage. Either the van drank
     // more than 9,5 L/100 km or the tank did not start empty — either way,
     // the app now says so instead of hiding it.
-    expect(toMajor(result.derivedPricePerUnit)).toBe(72.29)
+    expect(toMajor(result.streams[0]!.derivedPricePerUnit)).toBe(72.29)
   })
 
   it('splits the full amount as follows', () => {
@@ -84,11 +87,7 @@ describe('the same trip, priced from the receipts', () => {
 describe('both modes', () => {
   it('charge the two people who only rode the short leg the least', () => {
     for (const mode of ['fixed-price', 'from-receipts'] as const) {
-      const trip = createDemoTrip()
-      const result = calculateTrip({
-        ...trip,
-        pricing: mode === 'from-receipts' ? { mode } : trip.pricing,
-      })
+      const result = calculateTrip({ ...createDemoTrip(), pricingMode: mode })
       const sorted = [...result.people].sort((a, b) => a.payable - b.payable)
       expect(
         sorted
