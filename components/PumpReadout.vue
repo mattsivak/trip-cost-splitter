@@ -44,7 +44,9 @@ const priceNote = computed(() => {
 
     <div class="readout__cell">
       <span class="readout__label">{{ energyLabel }}</span>
-      <strong class="readout__value">{{ energyValue }}</strong>
+      <strong class="readout__value" :class="{ 'readout__value--mix': trip.streams.length > 1 }">
+        {{ energyValue }}
+      </strong>
       <span class="readout__note">{{ priceNote }}</span>
     </div>
 

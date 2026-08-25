@@ -258,6 +258,14 @@ td .figure {
   text-overflow: ellipsis;
 }
 
+/* A hybrid reads "18,4 L + 30,0 kWh", which is longer than any money figure.
+   It wraps rather than truncating: both halves are the whole point of it. */
+.readout__value--mix {
+  white-space: normal;
+  font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+  line-height: 1.2;
+}
+
 /* The headline figure is the one people came for. */
 .readout__cell:first-child .readout__value {
   color: var(--accent);
