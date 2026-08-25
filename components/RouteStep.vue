@@ -5,8 +5,9 @@ import { createDrive, createIdle, driveLabel } from '~/src/domain/trip/factories
 import { energyForSegment } from '~/src/domain/trip/energy'
 import { routeToSegments } from '~/src/domain/routing/routeToSegments'
 import { reanchorIdleStops } from '~/src/domain/trip/reanchorIdleStops'
+import { fromMajor, toMajor } from '~/src/domain/money/money'
 import type { GeoPoint } from '~/src/domain/routing/types'
-import type { Trip } from '~/src/domain/trip/types'
+import type { IdleSegment, Trip } from '~/src/domain/trip/types'
 
 /**
  * The trip object is reactive and owned by the page; steps edit it in place.
@@ -108,6 +109,24 @@ function relabel(segment: Trip['segments'][number]) {
 function quantity(segment: Trip['segments'][number]): number {
   return energyForSegment(segment, props.trip)
 }
+
+/**
+ * Priced by the kilometre, no fuel is counted, so the consumption figure and
+ * everything derived from it would only be decoration on a number nobody uses.
+ */
+const perKm = computed(() => props.trip.pricing.mode === 'per-km')
+
+const idleCostMajor = (segment: IdleSegment) => toMajor(segment.cost ?? 0)
+
+function setIdleCost(segment: IdleSegment, value: number) {
+  segment.cost = fromMajor(value)
+}
+
+/** What a segment contributed, however this trip is being priced. */
+function segmentBasis(segment: Trip['segments'][number]): string {
+  if (perKm.value) return segment.kind === 'drive' ? formatKm(segment.distanceKm) : 'waiting'
+  return formatEnergy(quantity(segment), props.trip.energyKind)
+}
 </script>
 
 <template>
@@ -130,11 +149,11 @@ function quantity(segment: Trip['segments'][number]): number {
           <textarea v-model="stopsDraft" rows="6" placeholder="Šumperk&#10;Olomouc&#10;Milovice" />
         </label>
         <div class="stack stack--tight">
-          <label class="field">
+          <label v-if="!perKm" class="field">
             <span>Consumption {{ consumptionLabelFor(trip.energyKind) }}</span>
             <input v-model.number="trip.consumptionPer100Km" type="number" min="0" step="0.1" />
           </label>
-          <p class="hint">Used for any drive without its own figure.</p>
+          <p v-if="!perKm" class="hint">Used for any drive without its own figure.</p>
           <EnergyPrice :trip="trip" show-mode-note />
         </div>
       </div>
@@ -209,7 +228,7 @@ function quantity(segment: Trip['segments'][number]): number {
             <h3>{{ segment.label || 'Untitled' }}</h3>
             <span class="segment__meta">
               {{ segment.kind === 'drive' ? segment.distanceSource : 'measured' }} ·
-              {{ formatEnergy(quantity(segment), trip.energyKind) }}
+              {{ segmentBasis(segment) }}
             </span>
           </div>
           <div class="button-row">
@@ -248,7 +267,7 @@ function quantity(segment: Trip['segments'][number]): number {
             <span>Distance km</span>
             <input v-model.number="segment.distanceKm" type="number" min="0" step="0.1" />
           </label>
-          <label class="field">
+          <label v-if="!perKm" class="field">
             <span>Consumption</span>
             <input
               v-model.number="segment.consumptionPer100Km"
@@ -269,7 +288,17 @@ function quantity(segment: Trip['segments'][number]): number {
             <span>Where</span>
             <input v-model="segment.location" />
           </label>
-          <label class="field">
+          <label v-if="perKm" class="field">
+            <span>{{ trip.currency }} it cost</span>
+            <input
+              :value="idleCostMajor(segment)"
+              type="number"
+              min="0"
+              step="1"
+              @input="setIdleCost(segment, Number(($event.target as HTMLInputElement).value))"
+            />
+          </label>
+          <label v-else class="field">
             <span>{{ unitLabelFor(trip.energyKind) }} used</span>
             <input v-model.number="segment.energy" type="number" min="0" step="0.1" />
           </label>

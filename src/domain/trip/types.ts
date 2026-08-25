@@ -52,6 +52,13 @@ export interface IdleSegment extends SegmentBase {
   kind: 'idle'
   location?: string
   energy: number
+  /**
+   * What the waiting cost, for a trip priced per kilometre — where there is
+   * no distance to charge against and no price per litre to value fuel with.
+   * Kept alongside `energy` rather than replacing it, so switching modes back
+   * and forth never discards what was typed.
+   */
+  cost?: Money
 }
 
 /**
@@ -100,6 +107,12 @@ export type Pricing =
   | { mode: 'fixed-price'; pricePerUnit: Money; source?: PriceSource }
   /** The price is whatever the receipts imply. Guarantees collected == spent. */
   | { mode: 'from-receipts' }
+  /**
+   * The driving is charged by the kilometre and fuel is never counted at all.
+   * For a car whose running cost you already know per km, or a trip billed at
+   * a standard mileage rate rather than at what the tank actually took.
+   */
+  | { mode: 'per-km'; ratePerKm: Money }
 
 export interface Trip {
   id: string
@@ -112,6 +125,16 @@ export interface Trip {
   energyKind: EnergyKind
   /** Per 100 km, in whatever unit `energyKind` implies. */
   consumptionPer100Km: number
+  /**
+   * Wear and tear charged by the kilometre — tyres, servicing, the car itself.
+   * Applies in every pricing mode and does nothing at zero, which is what a
+   * trip that has never heard of it carries.
+   *
+   * Deliberately not part of `receiptsDelta`: this is not money that left
+   * anybody's pocket at a pump, so it must not disturb the promise that
+   * `from-receipts` collects exactly what was spent on fuel.
+   */
+  maintenancePerKm: Money
   /** Exactly one driver, or none. Not a flag on Person, which allowed two. */
   driverId: PersonId | null
   people: Person[]

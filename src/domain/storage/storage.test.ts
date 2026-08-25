@@ -220,3 +220,39 @@ describe('trips saved before the app counted anything but litres', () => {
     expect(parseTrip({ energyKind: 'plutonium' })?.energyKind).toBe('gasoline')
   })
 })
+
+describe('a trip priced by the kilometre', () => {
+  it('round-trips the rate and the upkeep', () => {
+    const trip = makeTrip({
+      pricing: { mode: 'per-km', ratePerKm: 400 },
+      maintenancePerKm: 200,
+      segments: [makeIdle({ cost: 12000, occupantIds: ['ann'] })],
+    })
+    expect(parseTrip(JSON.parse(JSON.stringify(trip)))).toEqual(trip)
+  })
+
+  it('refuses a negative or nonsense rate rather than billing backwards', () => {
+    expect(parseTrip({ pricing: { mode: 'per-km', ratePerKm: -500 } })?.pricing).toEqual({
+      mode: 'per-km',
+      ratePerKm: 0,
+    })
+    expect(parseTrip({ pricing: { mode: 'per-km', ratePerKm: 'lots' } })?.pricing).toEqual({
+      mode: 'per-km',
+      ratePerKm: 0,
+    })
+  })
+
+  it('treats a trip saved before upkeep existed as charging none', () => {
+    expect(parseTrip({ title: 'Old' })?.maintenancePerKm).toBe(0)
+    expect(parseTrip({ maintenancePerKm: -300 })?.maintenancePerKm).toBe(0)
+    expect(parseTrip({ maintenancePerKm: 'some' })?.maintenancePerKm).toBe(0)
+  })
+
+  it('leaves an idle stop without a cost alone, rather than inventing a zero', () => {
+    const trip = parseTrip({
+      people: [{ id: 'ann', name: 'Ann' }],
+      segments: [{ kind: 'idle', id: 'i1', energy: 5, occupantIds: ['ann'] }],
+    })
+    expect(trip?.segments[0]).not.toHaveProperty('cost')
+  })
+})

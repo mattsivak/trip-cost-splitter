@@ -16,11 +16,30 @@ import type { Trip } from '~/src/domain/trip/types'
  * Shared between the route step and the split step: the unit belongs next to
  * the consumption figure, and the price belongs next to the receipts, but they
  * are one decision and must not drift apart.
+ *
+ * A trip priced by the kilometre swaps the whole fuel question for one rate.
+ * Wear and tear sits below either way — it is charged per kilometre whatever
+ * the driving itself is priced on.
  */
 const props = defineProps<{ trip: Trip; showModeNote?: boolean }>()
 
 const unit = computed(() => unitLabelFor(props.trip.energyKind))
 const lookingUp = ref(false)
+const perKm = computed(() => props.trip.pricing.mode === 'per-km')
+
+const ratePerKmMajor = computed({
+  get: () => (props.trip.pricing.mode === 'per-km' ? toMajor(props.trip.pricing.ratePerKm) : 0),
+  set: (value: number) => {
+    props.trip.pricing = { mode: 'per-km', ratePerKm: fromMajor(value) }
+  },
+})
+
+const maintenanceMajor = computed({
+  get: () => toMajor(props.trip.maintenancePerKm),
+  set: (value: number) => {
+    props.trip.maintenancePerKm = fromMajor(value)
+  },
+})
 
 const options = ENERGY_KINDS.map((kind) => ({ kind, label: ENERGY_KIND_LABELS[kind] }))
 
@@ -82,7 +101,18 @@ async function changeEnergyKind(value: string) {
 
 <template>
   <div class="stack stack--tight">
-    <div class="field-row">
+    <div v-if="perKm" class="field-row">
+      <label class="field">
+        <span>{{ trip.currency }} per km</span>
+        <input v-model.number="ratePerKmMajor" type="number" min="0" step="0.1" />
+      </label>
+      <label class="field">
+        <span>{{ trip.currency }} per km, upkeep</span>
+        <input v-model.number="maintenanceMajor" type="number" min="0" step="0.1" />
+      </label>
+    </div>
+
+    <div v-else class="field-row">
       <label class="field">
         <span>Runs on</span>
         <select
@@ -99,9 +129,18 @@ async function changeEnergyKind(value: string) {
         <span>{{ trip.currency }} per {{ unit }}</span>
         <input v-model.number="priceMajor" type="number" min="0" step="0.1" />
       </label>
+
+      <label class="field">
+        <span>{{ trip.currency }} per km, upkeep</span>
+        <input v-model.number="maintenanceMajor" type="number" min="0" step="0.1" />
+      </label>
     </div>
 
-    <p v-if="trip.pricing.mode !== 'fixed-price'" class="hint">
+    <p v-if="perKm" class="hint">
+      Charged by the kilometre, so no fuel is counted at all. Upkeep is wear on the car — tyres, servicing,
+      the thing itself. Leave it at zero to charge only for the driving.
+    </p>
+    <p v-else-if="trip.pricing.mode !== 'fixed-price'" class="hint">
       Priced from the receipts, so there is no price to set. Change that in step 4.
     </p>
     <p v-else-if="lookingUp" class="hint">Looking up the local price…</p>

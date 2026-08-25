@@ -13,11 +13,22 @@ export function formatTripSummary(trip: Trip, result: TripResult): string {
     .filter((person) => !person.isDriver && person.payable > 0)
     .sort((a, b) => b.payable - a.payable)
 
+  // Priced per kilometre, no fuel is counted at all, so quoting a litre
+  // figure of zero would be a lie dressed up as a measurement.
+  const basis =
+    trip.pricing.mode === 'per-km'
+      ? `${round1(result.totalDistanceKm)} km`
+      : `${round1(result.totalDistanceKm)} km · ${formatEnergy(result.totalEnergy, trip.energyKind)}`
+
   const lines: string[] = [
     `${trip.title} — fuel split`,
     '',
-    `${round1(result.totalDistanceKm)} km · ${formatEnergy(result.totalEnergy, trip.energyKind)} · ${formatMoney(result.totalExact, trip.currency)} total`,
+    `${basis} · ${formatMoney(result.totalExact, trip.currency)} total`,
   ]
+
+  if (result.maintenanceTotal > 0) {
+    lines.push(`Of which ${formatMoney(result.maintenanceTotal, trip.currency)} is wear and tear on the car.`)
+  }
 
   if (result.overheadTotal > 0) {
     lines.push(`Of which ${formatMoney(result.overheadTotal, trip.currency)} is tolls, parking and the like.`)

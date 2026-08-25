@@ -58,6 +58,25 @@ describe('formatTripSummary', () => {
     expect(formatTripSummary(electric, calculateTrip(electric))).toContain('200 km · 20,0 kWh')
   })
 
+  it('leaves litres out when the trip is priced by the kilometre', () => {
+    const perKm = makeTrip({
+      ...trip,
+      pricing: { mode: 'per-km', ratePerKm: fromMajor(4) },
+    })
+    const text = formatTripSummary(perKm, calculateTrip(perKm))
+    expect(text).toContain('200 km · 800 Kč total')
+    expect(text).not.toContain('L ·')
+  })
+
+  it('calls out wear and tear only when some is being charged', () => {
+    expect(summary).not.toContain('wear and tear')
+
+    const withUpkeep = makeTrip({ ...trip, maintenancePerKm: fromMajor(2) })
+    expect(formatTripSummary(withUpkeep, calculateTrip(withUpkeep))).toContain(
+      'Of which 400 Kč is wear and tear on the car.',
+    )
+  })
+
   it('mentions overhead only when there is some', () => {
     expect(summary).not.toContain('tolls, parking')
     const withTolls = makeTrip({

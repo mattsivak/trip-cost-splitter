@@ -42,6 +42,9 @@ export function parseTrip(value: unknown): Trip | null {
     // `defaultConsumptionLPer100Km` is what trips saved before the app counted
     // anything but litres called this.
     consumptionPer100Km: num(value.consumptionPer100Km, num(value.defaultConsumptionLPer100Km, 7)),
+    // Absent on every trip saved before upkeep could be charged, and zero is
+    // exactly what those trips meant.
+    maintenancePerKm: Math.round(Math.max(0, num(value.maintenancePerKm, 0))),
     driverId,
     people,
     routePoints: asArray(value.routePoints).flatMap(parseRoutePoint),
@@ -91,6 +94,8 @@ function parseSegment(value: unknown, knownPeople: ReadonlySet<string>): Segment
       energy: pickNumber(value.energy, value.liters) ?? 0,
       occupantIds,
     }
+    const cost = pickNumber(value.cost)
+    if (cost !== null) idle.cost = Math.round(Math.max(0, cost))
     if (str(value.location)) idle.location = str(value.location)
     if (str(value.notes)) idle.notes = str(value.notes)
     return [idle]
@@ -164,6 +169,9 @@ function parseReceipt(value: unknown): Receipt[] {
 
 function parsePricing(value: unknown): Pricing {
   if (isRecord(value) && value.mode === 'from-receipts') return { mode: 'from-receipts' }
+  if (isRecord(value) && value.mode === 'per-km') {
+    return { mode: 'per-km', ratePerKm: Math.round(Math.max(0, num(value.ratePerKm, 0))) }
+  }
 
   // `pricePerLiter` is the name trips saved before kWh existed.
   const price = isRecord(value) ? (pickNumber(value.pricePerUnit, value.pricePerLiter) ?? 0) : 0

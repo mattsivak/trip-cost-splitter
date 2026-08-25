@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { formatEnergy } from '~/src/domain/pricing/energyKind'
 import { canBuildPaymentLinks, paymentLinkFor } from '~/src/domain/settle/payment'
 import { normalizeRevolutHandle, paymentNote } from '~/src/domain/settle/revolut'
 import type { PersonBreakdown } from '~/src/domain/trip/result'
@@ -83,7 +82,7 @@ const outstanding = computed(() =>
         <div class="settle-row__who">
           <strong>{{ person.name }}</strong>
           <small class="settle-row__meta">
-            {{ formatEnergy(person.energy, trip.energyKind) }} over {{ person.segmentIds.length }}
+            {{ formatBasis(trip, person.energy, person.distanceKm) }} over {{ person.segmentIds.length }}
             {{ person.segmentIds.length === 1 ? 'part' : 'parts' }}
           </small>
         </div>

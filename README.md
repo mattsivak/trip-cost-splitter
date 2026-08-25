@@ -26,6 +26,24 @@ driver's pocket. You can price the trip two ways:
 | --------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | `from-receipts` | Divides exactly the receipt total, in proportion to each person's litres. The price per litre is derived, not entered. | Normal case. Guarantees collected equals spent.   |
 | `fixed-price`   | You state a price per litre. Receipts become a cross-check, and the app reports the gap.                               | When you want to bill mileage at a standard rate. |
+| `per-km`        | You state a price per kilometre and no fuel is counted at all — not the consumption figure, not litres, nothing.       | When you already know what the car costs to run.  |
+
+Pricing per kilometre changes what a segment's share is measured in, not how it
+is cut: a drive is worth its distance at the stated rate, an idle stop is worth
+whatever you say the waiting cost, and both are still split evenly between
+whoever was there. The consumption figure and price per litre stay on the trip
+untouched, so switching back and forth discards nothing.
+
+**Wear and tear is charged by the kilometre, in every mode.** A rate per km for
+tyres, servicing and the car itself, sitting alongside whatever the driving
+costs. It is charged on kilometres ridden rather than fuel burned, so two people
+who covered the same distance owe the same upkeep even if one of them was in the
+car for the thirsty half. At zero — which is what every trip starts at, and what
+every trip saved before it existed carries — it changes nothing.
+
+It deliberately stays out of the reconciliation against receipts. Upkeep is a
+notional charge rather than money that left somebody's pocket at a pump, so
+counting it there would make a perfectly reconciled trip look over-billed.
 
 Rounding lands on the driver: passengers pay whole units, and the driver pays
 whatever is left of the whole-unit trip total. The amount collected always

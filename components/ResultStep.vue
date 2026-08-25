@@ -14,13 +14,25 @@ const copied = ref(false)
 const summary = computed(() => formatTripSummary(props.trip, props.result))
 
 function setMode(mode: Trip['pricing']['mode']) {
-  props.trip.pricing = mode === 'from-receipts' ? { mode } : { mode: 'fixed-price', pricePerUnit: 0 }
+  if (mode === 'from-receipts') props.trip.pricing = { mode }
+  else if (mode === 'per-km') props.trip.pricing = { mode, ratePerKm: 0 }
+  else props.trip.pricing = { mode: 'fixed-price', pricePerUnit: 0 }
+}
+
+/** How much of the trip one person was there for, in whatever it is measured in. */
+function shareOf(person: TripResult['people'][number]): string {
+  return formatBasis(props.trip, person.energy, person.distanceKm)
 }
 
 /** What the split was measured from, in the same units the rest of the page uses. */
 function basisFor(segmentId: string): string {
   const segment = props.trip.segments.find((entry) => entry.id === segmentId)
   if (!segment) return ''
+  // Priced by the kilometre, litres were never counted, so quoting them as
+  // the basis of the split would describe a measurement nobody took.
+  if (props.trip.pricing.mode === 'per-km') {
+    return segment.kind === 'idle' ? 'waiting' : formatKm(segment.distanceKm)
+  }
   if (segment.kind === 'idle') return `${formatEnergy(segment.energy, props.trip.energyKind)} parked`
   if (segment.directEnergy !== undefined)
     return `${formatEnergy(segment.directEnergy, props.trip.energyKind)} measured`
@@ -79,6 +91,15 @@ async function copy() {
             @change="setMode('fixed-price')"
           />
           <span>Set a price per {{ unitLabelFor(trip.energyKind) }}</span>
+        </label>
+        <label class="toggle" :class="{ 'is-on': trip.pricing.mode === 'per-km' }">
+          <input
+            type="radio"
+            :checked="trip.pricing.mode === 'per-km'"
+            :name="`pricing-${trip.id}`"
+            @change="setMode('per-km')"
+          />
+          <span>Set a price per km</span>
         </label>
       </div>
 
@@ -162,6 +183,7 @@ async function copy() {
             <tr>
               <th>Person</th>
               <th class="is-figure">Fuel</th>
+              <th v-if="result.maintenanceTotal > 0" class="is-figure">Upkeep</th>
               <th class="is-figure">Other</th>
               <th class="is-figure">Exact</th>
               <th class="is-figure">Owes</th>
@@ -177,14 +199,16 @@ async function copy() {
                 <span class="cell-name">
                   <strong>{{ person.name }}</strong>
                   <small>
-                    {{ person.isDriver ? 'driver · ' : ''
-                    }}{{ formatEnergy(person.energy, trip.energyKind) }} over
+                    {{ person.isDriver ? 'driver · ' : '' }}{{ shareOf(person) }} over
                     {{ person.segmentIds.length }}
                     {{ person.segmentIds.length === 1 ? 'part' : 'parts' }}
                   </small>
                 </span>
               </td>
               <td class="is-figure" data-label="Fuel">{{ exact(person.fuelShare) }}</td>
+              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Upkeep">
+                {{ exact(person.maintenanceShare) }}
+              </td>
               <td class="is-figure" data-label="Other">{{ exact(person.overheadShare) }}</td>
               <td class="is-figure" data-label="Exact">{{ exact(person.exactTotal) }}</td>
               <td class="is-figure" data-label="Owes">
@@ -234,7 +258,9 @@ async function copy() {
                 </span>
               </td>
               <td class="is-figure" data-label="Basis">{{ basisFor(segment.segmentId) }}</td>
-              <td class="is-figure" data-label="Fuel">{{ formatEnergy(segment.energy, trip.energyKind) }}</td>
+              <td class="is-figure" data-label="Fuel">
+                {{ formatBasis(trip, segment.energy, segment.distanceKm) }}
+              </td>
               <td class="is-figure" data-label="People">{{ segment.occupantIds.length }}</td>
               <td class="is-figure" data-label="Cost">{{ exact(segment.cost) }}</td>
               <td class="is-figure" data-label="Each">{{ exact(segment.costPerOccupant) }}</td>

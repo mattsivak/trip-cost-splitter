@@ -12,6 +12,7 @@ export function makeTrip(overrides: Partial<Trip> = {}): Trip {
     pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(43) },
     energyKind: 'gasoline',
     consumptionPer100Km: 10,
+    maintenancePerKm: 0,
     driverId: 'ann',
     people: [
       { id: 'ann', name: 'Ann' },

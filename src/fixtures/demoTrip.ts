@@ -40,6 +40,8 @@ export function createDemoTrip(): Trip {
     // outright, so this is only the label on the field.
     energyKind: 'gasoline',
     consumptionPer100Km: 9.5,
+    // Nobody was billed for the van itself, only for what went into it.
+    maintenancePerKm: 0,
     rounding: 'nearest',
     currencyCode: 'CZK',
     paidAt: {},

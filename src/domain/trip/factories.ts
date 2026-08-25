@@ -28,6 +28,9 @@ export function createTrip(overrides: Partial<Trip> = {}): Trip {
     pricing: { mode: 'fixed-price', pricePerUnit: 0 },
     energyKind: 'gasoline',
     consumptionPer100Km: 7,
+    // Off until somebody says otherwise: most people splitting a trip are
+    // splitting fuel, not billing each other for the car.
+    maintenancePerKm: 0,
     driverId: null,
     people: [],
     routePoints: [],

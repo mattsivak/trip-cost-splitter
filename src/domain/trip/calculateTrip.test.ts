@@ -191,3 +191,162 @@ describe('edge cases the old model got wrong', () => {
     expect(toMajor(result.collectFromOthers)).toBe(200)
   })
 })
+
+describe('priced by the kilometre', () => {
+  const trip = makeTrip({
+    pricing: { mode: 'per-km', ratePerKm: fromMajor(4) },
+    segments: [
+      makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo'] }),
+      makeDrive({ id: 'd2', distanceKm: 50, occupantIds: ['ann'] }),
+    ],
+  })
+
+  it('charges the distance at the stated rate', () => {
+    const result = calculateTrip(trip)
+    // 150 km at 4 Kč.
+    expect(toMajor(result.fuelTotal)).toBe(600)
+  })
+
+  it('splits each leg between whoever was in the car for it', () => {
+    const result = calculateTrip(trip)
+    expect(toMajor(result.people[0]!.fuelShare)).toBe(400)
+    expect(toMajor(result.people[1]!.fuelShare)).toBe(200)
+  })
+
+  it('counts no fuel at all, rather than reporting a zero litre figure', () => {
+    const result = calculateTrip(trip)
+    expect(result.totalEnergy).toBe(0)
+    expect(result.derivedPricePerUnit).toBe(0)
+    expect(result.people[0]!.energy).toBe(0)
+  })
+
+  it('ignores the consumption figure the trip still carries', () => {
+    const thirsty = calculateTrip({ ...trip, consumptionPer100Km: 99 })
+    expect(toMajor(thirsty.fuelTotal)).toBe(600)
+  })
+
+  it('charges an idle stop whatever the waiting was said to cost', () => {
+    const result = calculateTrip({
+      ...trip,
+      segments: [makeIdle({ id: 'i1', cost: fromMajor(120), occupantIds: ['ann', 'bo', 'cy'] })],
+    })
+    expect(toMajor(result.fuelTotal)).toBe(120)
+    expect(toMajor(result.people[0]!.fuelShare)).toBe(40)
+  })
+
+  it('costs nothing for an idle stop with no amount on it', () => {
+    const result = calculateTrip({
+      ...trip,
+      segments: [makeIdle({ id: 'i1', energy: 10, occupantIds: ['ann'] })],
+    })
+    expect(result.fuelTotal).toBe(0)
+  })
+
+  it('asks for a rate when none is set', () => {
+    const result = calculateTrip({
+      ...trip,
+      pricing: { mode: 'per-km', ratePerKm: 0 },
+    })
+    expect(result.warnings).toContain('Set a price per km.')
+  })
+
+  it('never loses a minor unit', () => {
+    const awkward = calculateTrip({
+      ...trip,
+      pricing: { mode: 'per-km', ratePerKm: fromMajor(3.33) },
+      segments: [
+        makeDrive({ id: 'd1', distanceKm: 33.3, occupantIds: ['ann', 'bo', 'cy'] }),
+        makeDrive({ id: 'd2', distanceKm: 77.7, occupantIds: ['ann', 'cy'] }),
+      ],
+    })
+    expect(sumMoney(awkward.people.map((person) => person.exactTotal))).toBe(awkward.totalExact)
+    expect(sumMoney(awkward.segments.map((segment) => segment.cost))).toBe(awkward.totalExact)
+  })
+})
+
+describe('wear and tear, charged by the kilometre', () => {
+  const trip = makeTrip({
+    maintenancePerKm: fromMajor(2),
+    segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
+  })
+
+  it('adds to the fuel rather than replacing it', () => {
+    const result = calculateTrip(trip)
+    // 10 L at 43 Kč, plus 100 km at 2 Kč.
+    expect(toMajor(result.fuelTotal)).toBe(430)
+    expect(toMajor(result.maintenanceTotal)).toBe(200)
+    expect(toMajor(result.totalExact)).toBe(630)
+  })
+
+  it('lands on each person alongside their fuel', () => {
+    const result = calculateTrip(trip)
+    expect(toMajor(result.people[0]!.maintenanceShare)).toBe(100)
+    expect(toMajor(result.people[0]!.exactTotal)).toBe(315)
+  })
+
+  it('is charged on kilometres ridden, not on fuel burned', () => {
+    const lopsided = calculateTrip(
+      makeTrip({
+        maintenancePerKm: fromMajor(1),
+        segments: [
+          makeDrive({ id: 'd1', distanceKm: 100, consumptionPer100Km: 20, occupantIds: ['ann'] }),
+          makeDrive({ id: 'd2', distanceKm: 100, consumptionPer100Km: 5, occupantIds: ['bo'] }),
+        ],
+      }),
+    )
+
+    // Ann burned four times the fuel Bo did over the same distance...
+    expect(toMajor(lopsided.people[0]!.fuelShare)).toBe(860)
+    expect(toMajor(lopsided.people[1]!.fuelShare)).toBe(215)
+    // ...but they put the same wear on the car.
+    expect(toMajor(lopsided.people[0]!.maintenanceShare)).toBe(100)
+    expect(toMajor(lopsided.people[1]!.maintenanceShare)).toBe(100)
+    expect(lopsided.people[0]!.distanceKm).toBe(100)
+  })
+
+  it('does not accrue while the car is parked', () => {
+    const result = calculateTrip(
+      makeTrip({
+        maintenancePerKm: fromMajor(2),
+        segments: [makeIdle({ energy: 10, occupantIds: ['ann'] })],
+      }),
+    )
+    expect(result.maintenanceTotal).toBe(0)
+  })
+
+  it('stays out of the reconciliation against receipts', () => {
+    const result = calculateTrip({
+      ...trip,
+      pricing: { mode: 'from-receipts' },
+      receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(430) }],
+    })
+
+    // The receipts covered the fuel exactly; the upkeep is charged on top and
+    // must not make a reconciled trip look over-billed.
+    expect(result.receiptsDelta).toBe(0)
+    expect(toMajor(result.maintenanceTotal)).toBe(200)
+    expect(toMajor(result.totalExact)).toBe(630)
+  })
+
+  it('applies when the trip is priced per kilometre too', () => {
+    const result = calculateTrip({
+      ...trip,
+      pricing: { mode: 'per-km', ratePerKm: fromMajor(4) },
+    })
+    expect(toMajor(result.fuelTotal)).toBe(400)
+    expect(toMajor(result.maintenanceTotal)).toBe(200)
+  })
+
+  it('gives an unassigned leg to the driver even when only upkeep is charged', () => {
+    const result = calculateTrip(
+      makeTrip({
+        pricing: { mode: 'fixed-price', pricePerUnit: 0 },
+        consumptionPer100Km: 0,
+        maintenancePerKm: fromMajor(2),
+        segments: [makeDrive({ distanceKm: 100, occupantIds: [] })],
+      }),
+    )
+    expect(result.warnings.some((warning) => warning.includes('nobody assigned'))).toBe(true)
+    expect(toMajor(result.people[0]!.maintenanceShare)).toBe(200)
+  })
+})
