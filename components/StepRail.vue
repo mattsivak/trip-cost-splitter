@@ -23,7 +23,7 @@ const steps = [
       :key="step.name"
       type="button"
       class="rail__step"
-      :class="{ 'is-active': props.modelValue === index }"
+      :class="{ 'is-active': props.modelValue === index, 'is-done': index < props.modelValue }"
       :aria-current="props.modelValue === index ? 'step' : undefined"
       @click="emit('update:modelValue', index)"
     >

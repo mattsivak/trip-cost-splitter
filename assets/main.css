@@ -281,44 +281,67 @@ td .figure {
 
 /* ---------- step rail ---------- */
 
+/*
+ * No box and no cell dividers: five segments of one gauge scale. Position is
+ * carried by the rule above each step — accent where you are, a dimmed accent
+ * for ground already covered, hairline for what is still ahead. The labels
+ * hang off that scale rather than sitting in cages.
+ */
 .rail {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius);
-  overflow: hidden;
-  margin: calc(var(--step) * 6) 0;
-  background: var(--surface);
+  gap: calc(var(--step) * 3);
+  margin: calc(var(--step) * 6) 0 calc(var(--step) * 8);
 }
 
 .rail__step {
   appearance: none;
   border: 0;
-  border-right: 1px solid var(--rule);
+  border-top: 2px solid var(--rule);
   background: transparent;
-  padding: calc(var(--step) * 3) calc(var(--step) * 3);
+  padding: calc(var(--step) * 2) 0 0;
   text-align: left;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   font: inherit;
 }
 
-.rail__step:last-child {
-  border-right: 0;
+/* The bare button rules would paint a filled pill here; the rail stays flat. */
+.rail__step:hover,
+.rail__step:active {
+  background: transparent;
 }
 
 .rail__step:hover:not(.is-active) {
-  background: var(--hover);
+  border-top-color: var(--rule-strong);
+  color: var(--ink-soft);
 }
 
-/* Marked by a rule and a colour rather than by a black fill. */
-.rail__step.is-active {
-  background: var(--accent-soft);
+.rail__step:hover:not(.is-active) .rail__name {
   color: var(--ink);
-  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.rail__step:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Covered ground: the same mark, spent. */
+.rail__step.is-done {
+  border-top-color: color-mix(in srgb, var(--accent) 45%, var(--rule));
+  color: var(--ink-soft);
+}
+
+.rail__step.is-done .rail__index {
+  color: color-mix(in srgb, var(--accent) 60%, var(--ink-faint));
+}
+
+.rail__step.is-active {
+  border-top-color: var(--accent);
+  color: var(--ink);
 }
 
 .rail__step.is-active .rail__index {
@@ -326,17 +349,26 @@ td .figure {
   opacity: 1;
 }
 
+.rail__step.is-active .rail__name {
+  color: var(--ink);
+}
+
 .rail__index {
   font-family: var(--font-figure);
   font-size: 0.62rem;
   letter-spacing: 0.14em;
-  opacity: 0.65;
+  opacity: 0.75;
 }
 
 .rail__name {
   font-weight: 600;
   font-size: 0.9rem;
   letter-spacing: -0.01em;
+  color: var(--ink-soft);
+}
+
+.rail__step.is-active .rail__hint {
+  opacity: 0.85;
 }
 
 .rail__hint {
@@ -348,12 +380,7 @@ td .figure {
 @media (max-width: 900px) {
   .rail {
     grid-template-columns: repeat(3, 1fr);
-  }
-  .rail__step:nth-child(3n) {
-    border-right: 0;
-  }
-  .rail__step:nth-child(-n + 3) {
-    border-bottom: 1px solid var(--rule);
+    gap: calc(var(--step) * 3) calc(var(--step) * 2);
   }
   .rail__hint {
     display: none;
@@ -363,16 +390,6 @@ td .figure {
 @media (max-width: 560px) {
   .rail {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .rail__step {
-    border-right: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-  }
-  .rail__step:nth-child(2n) {
-    border-right: 0;
-  }
-  .rail__step:last-child {
-    border-bottom: 0;
   }
 }
 
