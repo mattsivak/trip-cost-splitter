@@ -85,7 +85,9 @@ test('both units are counted, and only the petrol is charged out', async ({ page
 test('billing the electricity adds it to the total', async ({ page }) => {
   await startHybrid(page)
 
-  await page.getByLabel('Bill the electric').check()
+  // The native checkbox is visually hidden behind the pill, so click the pill.
+  await page.getByText('Bill the electric').click()
+  await expect(page.getByLabel('Bill the electric')).toBeChecked()
   await page.getByLabel('Kč per kWh').fill('6')
 
   const readout = readoutOf(page)
