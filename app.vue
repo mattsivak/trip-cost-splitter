@@ -19,7 +19,10 @@ useHead({
         <span class="eyebrow">fuel, split by who was in the car</span>
       </NuxtLink>
 
-      <ThemeToggle />
+      <div class="masthead__tools">
+        <InstallButton />
+        <ThemeToggle />
+      </div>
     </header>
 
     <NuxtPage />

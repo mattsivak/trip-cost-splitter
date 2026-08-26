@@ -214,6 +214,63 @@ td .figure {
   gap: calc(var(--step) * 4);
 }
 
+.masthead__tools {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--step) * 2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ---------- the offer to install ---------- */
+
+.install {
+  position: relative;
+}
+
+.install__button {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--accent);
+  font-family: var(--font-figure);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: calc(var(--step) * 1.5) calc(var(--step) * 2);
+}
+
+.install__button:hover {
+  background: var(--accent-soft);
+  border-color: var(--rule-strong);
+}
+
+/* iOS cannot be prompted, only told. The note hangs off the button rather
+ * than pushing the masthead taller the moment it appears. */
+.install__hint {
+  position: absolute;
+  top: calc(100% + var(--step) * 1.5);
+  /* Anchored to the button's left edge: on a phone the masthead tools sit at
+   * the left of their own row, and a right-anchored note runs off the page. */
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: min(15rem, calc(100vw - var(--step) * 10));
+  margin: 0;
+  padding: calc(var(--step) * 2) calc(var(--step) * 2.5);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.install__hint strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* ---------- totals readout: a recessed instrument, not a slab ---------- */
 
 .readout {
@@ -1259,7 +1316,8 @@ details.working[open] > summary {
 
   button,
   .pay-link,
-  .theme__option {
+  .theme__option,
+  .install__button {
     min-height: 44px;
   }
 

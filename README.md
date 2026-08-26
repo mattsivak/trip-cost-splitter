@@ -138,6 +138,31 @@ An inline script in the document head applies a stored choice before the first
 paint. Without it the page renders in the system theme and then flips, which is
 worse than having no toggle at all.
 
+## Installing it
+
+The app installs to a home screen. On Android and desktop Chrome an **Install**
+button appears in the header the moment the browser offers one — the
+`beforeinstallprompt` event is held back so the offer sits with the theme
+control instead of in whatever bar the browser would have drawn. iOS reads none
+of the manifest and gives the page no such event, so there the same button just
+says what to do: Share, then Add to Home Screen. Once the app is installed the
+button stops appearing, because the window it opened in is the answer.
+
+`public/manifest.webmanifest` carries the name, the standalone display mode and
+the icons. Android needs a real 192 and 512 PNG before it will offer to install
+anything, plus a maskable one so a circle-masking launcher does not crop the
+mark; iOS reads only `apple-touch-icon`. All of them are rendered from
+`public/icons/icon.svg` by `node scripts/build-icons.mjs`, which needs running
+only when the mark itself changes — the PNGs are committed.
+
+`public/sw.js` is the service worker, and it exists for two reasons: no browser
+offers to install an app without one, and a phone in a tunnel should still open
+something. It caches the shell — the HTML, the hashed build assets, the fonts,
+the icons — and never `/api`. A stale figure that looks live is worse than no
+figure, so money goes to the network or fails honestly. It is registered only
+in a real build; on the dev server it would serve yesterday's assets under
+today's URLs.
+
 ## Settling up
 
 The last step turns the split into money actually moving.
@@ -225,6 +250,9 @@ server/api/trips/    Trip storage and the two-key access model
 components/          The wizard steps and shared pieces
 composables/         Reactive glue between the domain and the pages
 pages/               Trip list, the wizard, the share-link importer
+plugins/             Client-only glue; registers the service worker
+public/              Manifest, service worker, icons
+scripts/             Renders the PNG icons from their SVG source
 ```
 
 The domain has no imports from Nuxt or Vue, which is why it is the part with

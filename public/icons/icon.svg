@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Trip Cost Splitter">
+  <!--
+    A torn strip of thermal paper, which is what the whole app is dressed as.
+    Four figures, the last one struck as a total. Nothing here is finer than
+    16px at this scale, so it survives being shrunk to a 48px favicon.
+  -->
+  <rect width="512" height="512" fill="#1f6f5c" />
+  <path
+    fill="#f4f1e9"
+    d="M132 84h248v312l-31 26-31-26-31 26-31-26-31 26-31-26-31 26-31-26Z"
+  />
+  <g fill="#1f6f5c">
+    <rect x="168" y="140" width="176" height="18" rx="9" />
+    <rect x="168" y="196" width="112" height="18" rx="9" />
+    <rect x="168" y="252" width="144" height="18" rx="9" />
+    <rect x="168" y="316" width="176" height="30" rx="9" />
+  </g>
+</svg>

@@ -34,6 +34,28 @@ export default defineNuxtConfig({
           content: 'Split fuel and trip costs fairly across everyone who rode along.',
         },
         { name: 'color-scheme', content: 'light dark' },
+        // The bar above an installed window is painted from these, so they
+        // track the page colour rather than the accent.
+        {
+          name: 'theme-color',
+          content: '#eae7df',
+          media: '(prefers-color-scheme: light)',
+        },
+        {
+          name: 'theme-color',
+          content: '#191a17',
+          media: '(prefers-color-scheme: dark)',
+        },
+        // iOS reads none of the manifest: standalone mode, the home screen
+        // name and the status bar are all still set here.
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-title', content: 'Trip Split' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+      ],
+      link: [
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'icon', href: '/icons/icon.svg', type: 'image/svg+xml' },
+        { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png', sizes: '180x180' },
       ],
       script: [
         {
