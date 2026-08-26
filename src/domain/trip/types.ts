@@ -74,21 +74,58 @@ export type OverheadAllocation =
   /** Explicit per-person amounts, in minor units. */
   | { type: 'fixed'; amounts: Record<PersonId, Money> }
 
+/**
+ * Where a prefilled exchange rate came from. Kept so the interface can say
+ * which day's rate it used — the ECB publishes on working days only, so a
+ * Saturday receipt is converted at Friday's rate and should admit it.
+ */
+export interface RateSource {
+  /** The day the rate is actually for, which may precede the receipt's date. */
+  date: string
+  fetchedAt: string
+}
+
+/**
+ * An amount written in a currency that is not the trip's.
+ *
+ * `originalAmount` is what the paper says and is what the user edits; the
+ * entry's own `amount` stays the converted figure in the trip's currency, so
+ * every existing sum over receipts or overheads keeps meaning what it did.
+ * The two are held together by `parseTrip`, which re-derives the conversion on
+ * load rather than trusting a stored number to still match its rate.
+ */
+export interface ForeignAmount {
+  /** ISO code the amount is written in, e.g. 'EUR'. */
+  currency: string
+  /** What the receipt says, in minor units of `currency`. 6240 is 62,40 €. */
+  originalAmount: Money
+  /** Trip-currency units per one unit of `currency`. 24.21 is 24,21 Kč to €1. */
+  rate: number
+  /** Dropped the moment somebody types over the rate — then it is their number. */
+  source?: RateSource
+}
+
 /** A non-fuel cost: tolls, parking, a vignette, a ferry. */
 export interface OverheadCost {
   id: string
   label: string
+  /** Always the trip's own currency. Converted from `foreign` when there is one. */
   amount: Money
   allocation: OverheadAllocation
+  /** Set when the cost was paid in another currency. */
+  foreign?: ForeignAmount
 }
 
 /** Money that actually left the driver's pocket. The ground truth. */
 export interface Receipt {
   id: string
   label: string
+  /** Always the trip's own currency. Converted from `foreign` when there is one. */
   amount: Money
   date?: string
   notes?: string
+  /** Set when the fuel was bought in another currency. */
+  foreign?: ForeignAmount
 }
 
 /**

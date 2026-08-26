@@ -181,6 +181,17 @@ export function calculateTrip(trip: Trip): TripResult {
     }
   })
 
+  // A foreign amount with no usable rate converts to nothing, which is real
+  // money quietly leaving the reconciliation. Said out loud rather than left
+  // to be noticed as a total that looks slightly wrong.
+  for (const entry of [...trip.receipts, ...trip.overheadCosts]) {
+    if (entry.foreign && !(entry.foreign.rate > 0)) {
+      warnings.push(
+        `"${entry.label}" is in ${entry.foreign.currency} with no exchange rate, so it is not being counted.`,
+      )
+    }
+  }
+
   const receiptsTotal = sumMoney(trip.receipts.map((receipt) => receipt.amount))
   const receiptsDelta = trip.pricing.mode === 'from-receipts' ? 0 : receiptsTotal - fuelTotal
   // With no receipts there is nothing to reconcile against, so saying the

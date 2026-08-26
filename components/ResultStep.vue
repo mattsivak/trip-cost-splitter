@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
-import { fromMajor, toMajor } from '~/src/domain/money/money'
 import { createOverhead, createReceipt } from '~/src/domain/trip/factories'
 import type { TripResult } from '~/src/domain/trip/result'
 import { formatTripSummary } from '~/src/domain/trip/summary'
@@ -37,14 +36,6 @@ function basisFor(segmentId: string): string {
   if (segment.directEnergy !== undefined)
     return `${formatEnergy(segment.directEnergy, props.trip.energyKind)} measured`
   return formatKm(segment.distanceKm)
-}
-
-function amountOf(item: { amount: number }): number {
-  return toMajor(item.amount)
-}
-
-function setAmount(item: { amount: number }, value: number) {
-  item.amount = fromMajor(value)
 }
 
 async function copy() {
@@ -108,16 +99,10 @@ async function copy() {
       <div class="field-row">
         <div class="stack stack--tight">
           <p class="eyebrow">Receipts</p>
-          <div v-for="receipt in trip.receipts" :key="receipt.id" class="button-row">
-            <input v-model="receipt.label" style="flex: 1" />
-            <input
-              :value="amountOf(receipt)"
-              type="number"
-              min="0"
-              step="0.01"
-              style="max-width: 130px"
-              @input="setAmount(receipt, Number(($event.target as HTMLInputElement).value))"
-            />
+          <div v-for="receipt in trip.receipts" :key="receipt.id" class="entry-row">
+            <input v-model="receipt.label" class="entry-row__label" aria-label="What it was for" />
+            <input v-model="receipt.date" type="date" class="entry-row__date" aria-label="Date" />
+            <AmountField :trip="trip" :entry="receipt" />
             <button
               type="button"
               class="button--danger"
@@ -131,20 +116,16 @@ async function copy() {
               Add a receipt
             </button>
           </div>
+          <p class="hint">
+            Paid abroad? Change the currency and the rate for that day is filled in for you.
+          </p>
         </div>
 
         <div class="stack stack--tight">
           <p class="eyebrow">Tolls, parking and the like</p>
-          <div v-for="cost in trip.overheadCosts" :key="cost.id" class="button-row">
-            <input v-model="cost.label" style="flex: 1" />
-            <input
-              :value="amountOf(cost)"
-              type="number"
-              min="0"
-              step="0.01"
-              style="max-width: 130px"
-              @input="setAmount(cost, Number(($event.target as HTMLInputElement).value))"
-            />
+          <div v-for="cost in trip.overheadCosts" :key="cost.id" class="entry-row">
+            <input v-model="cost.label" class="entry-row__label" aria-label="What it was for" />
+            <AmountField :trip="trip" :entry="cost" />
             <button
               type="button"
               class="button--danger"
@@ -288,3 +269,27 @@ async function copy() {
     </section>
   </div>
 </template>
+
+<style scoped>
+/**
+ * A receipt or overhead line. Aligned to the top rather than centred, because
+ * a foreign amount grows a second line underneath it and everything beside it
+ * should stay put when it does.
+ */
+.entry-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.entry-row__label {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.entry-row__date {
+  flex: 0 1 auto;
+  max-width: 150px;
+}
+</style>

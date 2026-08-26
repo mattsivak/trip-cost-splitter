@@ -1,8 +1,10 @@
 import type { RoundingMode } from '../money/money'
 import { isEnergyKind, type EnergyKind } from '../pricing/energyKind'
+import { convertAmount, isCurrencyCode, normalizeCurrencyCode } from '../pricing/fxRates'
 import { createId, createTrip } from '../trip/factories'
 import type {
   DistanceSource,
+  ForeignAmount,
   OverheadCost,
   Person,
   PriceSource,
@@ -145,14 +147,20 @@ function parseOverhead(value: unknown, knownPeople: ReadonlySet<string>): Overhe
     }
   }
 
-  return [
-    {
-      id: str(value.id) || createId('overhead'),
-      label: str(value.label) || 'Other cost',
-      amount: Math.round(num(value.amount, 0)),
-      allocation: parsed,
-    },
-  ]
+  const cost: OverheadCost = {
+    id: str(value.id) || createId('overhead'),
+    label: str(value.label) || 'Other cost',
+    amount: Math.round(num(value.amount, 0)),
+    allocation: parsed,
+  }
+
+  const foreign = parseForeign(value.foreign)
+  if (foreign) {
+    cost.foreign = foreign
+    cost.amount = convertAmount(foreign.originalAmount, foreign.rate)
+  }
+
+  return [cost]
 }
 
 function parseReceipt(value: unknown): Receipt[] {
@@ -164,7 +172,47 @@ function parseReceipt(value: unknown): Receipt[] {
   }
   if (str(value.date)) receipt.date = str(value.date)
   if (str(value.notes)) receipt.notes = str(value.notes)
+
+  const foreign = parseForeign(value.foreign)
+  if (foreign) {
+    receipt.foreign = foreign
+    receipt.amount = convertAmount(foreign.originalAmount, foreign.rate)
+  }
+
   return [receipt]
+}
+
+/**
+ * A foreign amount, or nothing at all.
+ *
+ * The converted `amount` is never taken from the file. It is recomputed from
+ * the original and the rate by the two callers above, so a stored figure that
+ * no longer matches its rate — hand-edited, or written by a version that
+ * rounded differently — cannot survive a load. The pair is the truth; the
+ * conversion is derived from it every time.
+ */
+function parseForeign(value: unknown): ForeignAmount | undefined {
+  if (!isRecord(value)) return undefined
+
+  const currency = str(value.currency)
+  if (!isCurrencyCode(currency)) return undefined
+
+  const rate = num(value.rate, 0)
+  if (!(rate > 0)) return undefined
+
+  const foreign: ForeignAmount = {
+    currency: normalizeCurrencyCode(currency),
+    originalAmount: Math.round(num(value.originalAmount, 0)),
+    rate,
+  }
+
+  const source = isRecord(value.source) ? value.source : null
+  const date = source ? str(source.date) : ''
+  if (source && date) {
+    foreign.source = { date, fetchedAt: str(source.fetchedAt) }
+  }
+
+  return foreign
 }
 
 function parsePricing(value: unknown): Pricing {

@@ -256,3 +256,78 @@ describe('a trip priced by the kilometre', () => {
     expect(trip?.segments[0]).not.toHaveProperty('cost')
   })
 })
+
+describe('amounts paid in another currency', () => {
+  const eurReceipt = {
+    id: 'receipt-1',
+    label: 'Tankstelle Kufstein',
+    amount: 999999,
+    date: '2026-08-14',
+    foreign: {
+      currency: 'EUR',
+      originalAmount: 6240,
+      rate: 24.21,
+      source: { date: '2026-08-14', fetchedAt: '2026-08-25T10:00:00.000Z' },
+    },
+  }
+
+  it('re-derives the converted amount rather than trusting the stored one', () => {
+    // The file claims 9 999,99 Kč; the original and the rate say otherwise,
+    // and the pair is the truth.
+    const trip = parseTrip({ receipts: [eurReceipt] })
+    expect(trip?.receipts[0]?.amount).toBe(Math.round(6240 * 24.21))
+    expect(trip?.receipts[0]?.foreign).toMatchObject({ currency: 'EUR', rate: 24.21 })
+  })
+
+  it('keeps which day the rate was for', () => {
+    const trip = parseTrip({ receipts: [eurReceipt] })
+    expect(trip?.receipts[0]?.foreign?.source?.date).toBe('2026-08-14')
+  })
+
+  it('does the same for an overhead cost', () => {
+    const trip = parseTrip({
+      overheadCosts: [
+        {
+          id: 'o1',
+          label: 'Austria vignette',
+          amount: 0,
+          foreign: { currency: 'EUR', originalAmount: 1240, rate: 24.21 },
+        },
+      ],
+    })
+    expect(trip?.overheadCosts[0]?.amount).toBe(Math.round(1240 * 24.21))
+  })
+
+  it('normalises the currency code', () => {
+    const trip = parseTrip({
+      receipts: [
+        { id: 'r', label: 'x', amount: 0, foreign: { currency: 'eur', originalAmount: 100, rate: 2 } },
+      ],
+    })
+    expect(trip?.receipts[0]?.foreign?.currency).toBe('EUR')
+  })
+
+  it.each([
+    ['no rate', { currency: 'EUR', originalAmount: 6240 }],
+    ['a zero rate', { currency: 'EUR', originalAmount: 6240, rate: 0 }],
+    ['a negative rate', { currency: 'EUR', originalAmount: 6240, rate: -2 }],
+    ['a currency that is not a code', { currency: 'Kč', originalAmount: 6240, rate: 24 }],
+    ['nothing usable at all', 'euros'],
+  ])('drops a foreign block with %s and keeps the stored amount', (_case, foreign) => {
+    const trip = parseTrip({ receipts: [{ id: 'r', label: 'x', amount: 5000, foreign }] })
+    expect(trip?.receipts[0]?.foreign).toBeUndefined()
+    expect(trip?.receipts[0]?.amount).toBe(5000)
+  })
+
+  it('leaves a trip with no foreign amounts exactly as it was', () => {
+    const trip = parseTrip({ receipts: [{ id: 'r', label: 'Benzina', amount: 124000 }] })
+    expect(trip?.receipts[0]?.amount).toBe(124000)
+    expect(trip?.receipts[0]?.foreign).toBeUndefined()
+  })
+
+  it('round-trips through JSON unchanged', () => {
+    const once = parseTrip({ receipts: [eurReceipt] })
+    const twice = parseTrip(JSON.parse(JSON.stringify(once)))
+    expect(twice?.receipts).toEqual(once?.receipts)
+  })
+})

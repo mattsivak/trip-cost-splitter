@@ -20,7 +20,7 @@ and that fuel is split evenly between them. Ride half the trip, pay for half the
 trip's fuel.
 
 **Receipts are the ground truth for money.** They are what actually left the
-driver's pocket. You can price the trip two ways:
+driver's pocket. You can price the trip three ways:
 
 | Mode            | What it does                                                                                                           | When to use it                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
@@ -105,6 +105,40 @@ would be confidently wrong for most people.
 
 None of this blocks anything. If the lookup is slow, broken or unsure of the
 country, the trip opens at zero and the app simply asks for a price.
+
+## Money paid in another currency
+
+A trip that crosses a border spends more than one currency: Czech fuel on the
+way out, Austrian tolls in the middle, a euro tank at the far end. Receipts and
+overhead costs can each be marked as paid in another currency, and are
+converted into the trip's own.
+
+**The conversion happens once, at the boundary.** An entry's `amount` is always
+the trip's currency in integer minor units — the foreign figure and its rate
+live beside it in `foreign`. So every pool, allocation and total downstream is
+ordinary integer arithmetic that knows nothing about exchange rates, and the
+guarantee that the shares sum exactly to the total is untouched.
+
+That also means the pair is the truth and the conversion is derived from it.
+`parseTrip` recomputes `amount` from `originalAmount × rate` on load, so a
+stored figure that no longer matches its rate — hand-edited, or written by a
+version that rounded differently — cannot survive being read back.
+
+**The rate is the one for the day of the receipt.** Each receipt carries a
+date, and the rate fetched is the rate that applied then, not today's: you were
+charged at the rate on the day you paid, and a trip settled three weeks later
+should not quietly re-price itself. Type over the rate and it becomes your
+number, and the attribution is dropped — the same way the pump price prefill
+behaves.
+
+Rates come from [Frankfurter](https://frankfurter.dev), which serves European
+Central Bank reference rates — free, no key. The ECB publishes on working days
+only, so a Saturday receipt is converted at Friday's rate; the day actually
+used is stored and shown, rather than the day that was asked about.
+
+An amount whose rate could not be found converts to nothing, which would be
+real money silently leaving the reconciliation. The split warns about it by
+name instead.
 
 ## Routing
 
@@ -212,7 +246,7 @@ trips stay until deleted.
 src/domain/          Framework-free. No Vue, no Nuxt, no network.
   money/             Integer minor-unit arithmetic and exact allocation
   trip/              Types, energy, overhead, the calculator, the share message
-  pricing/           Energy kinds and units, and reading the price feed
+  pricing/           Energy kinds and units, and reading the price and rate feeds
   geo/               Working out a country from a request
   settle/            Revolut payment links
   routing/           Provider interface, OSRM, Mapy, segment mapping
@@ -221,6 +255,7 @@ src/fixtures/        The demo trip and the golden test
 e2e/                 Playwright specs for the browser-only behaviour
 server/api/routing/  Nitro endpoints; where the provider keys stay
 server/api/pricing/  The local price lookup, cached
+server/api/fx/       The exchange rate lookup, cached
 server/api/trips/    Trip storage and the two-key access model
 components/          The wizard steps and shared pieces
 composables/         Reactive glue between the domain and the pages
