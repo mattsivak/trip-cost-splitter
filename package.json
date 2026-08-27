@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "ulimit -n 61440 || true; nuxt dev --host 0.0.0.0 --no-fork",
+    "dev": "ulimit -n 32768 || true; nuxt dev --host 0.0.0.0 --no-fork",
     "build": "nuxt build",
     "preview": "node .output/server/index.mjs",
     "generate": "nuxt generate",
