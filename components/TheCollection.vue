@@ -9,6 +9,7 @@ const props = defineProps<{ trip: Trip; result: TripResult }>()
 
 const store = useTripStore()
 const copied = ref<'' | 'view' | 'copy' | 'edit'>('')
+const copiedPerson = ref('')
 const busyPersonId = ref<string | null>(null)
 
 const keys = computed(() => store.keysFor(props.trip.id))
@@ -63,6 +64,19 @@ const canPay = computed(() => canBuildPaymentLinks(props.trip))
 onMounted(() => {
   if (!props.trip.currencyCode && currencyCode.value) props.trip.currencyCode = currencyCode.value
 })
+
+/** One link per person, so the page they open can lead with their own name. */
+async function copyFor(personId: string, name: string) {
+  if (!keys.value) return
+  const link = buildViewUrl(window.location.origin, props.trip.id, keys.value.viewKey, personId)
+  try {
+    await navigator.clipboard.writeText(link)
+    copiedPerson.value = name
+    setTimeout(() => (copiedPerson.value = ''), 1800)
+  } catch {
+    copiedPerson.value = ''
+  }
+}
 
 async function copy(which: 'view' | 'copy' | 'edit') {
   const origin = window.location.origin
@@ -172,6 +186,27 @@ async function togglePaid(personId: string, paid: boolean) {
           </button>
           <button type="button" :disabled="!keys" @click="copy('view')">
             {{ copied === 'view' ? 'Copied' : 'Copy the payment link' }}
+          </button>
+        </div>
+      </div>
+
+      <!--
+        A link that names its reader opens on their own amount instead of a list
+        of eight names to find themselves in. The key is the same; the name is
+        only a hint about who is holding the phone.
+      -->
+      <div class="stack stack--tight" style="margin-top: 16px">
+        <p class="eyebrow">A link for each person</p>
+        <div class="button-row">
+          <button
+            v-for="person in result.people"
+            :key="person.personId"
+            type="button"
+            class="button--quiet"
+            :disabled="!keys"
+            @click="copyFor(person.personId, person.name)"
+          >
+            {{ copiedPerson === person.name ? 'Copied' : `Copy ${person.name}'s link` }}
           </button>
         </div>
       </div>

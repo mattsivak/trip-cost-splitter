@@ -35,8 +35,29 @@ export function buildCopyUrl(origin: string, trip: Trip): string {
  * the working, with no way to change any of it. The key rides in the fragment
  * so it stays out of server logs and Referer headers.
  */
-export function buildViewUrl(origin: string, tripId: string, viewKey: string): string {
-  return `${base(origin)}/view/${encodeURIComponent(tripId)}#${viewKey}`
+export function buildViewUrl(
+  origin: string,
+  tripId: string,
+  viewKey: string,
+  personId = '',
+): string {
+  const who = personId ? `.${personId}` : ''
+  return `${base(origin)}/view/${encodeURIComponent(tripId)}#${viewKey}${who}`
+}
+
+/**
+ * The other half of that link.
+ *
+ * A page that knows which of the eight names belongs to the person holding the
+ * phone can lead with their amount instead of handing them a collections table
+ * to find themselves in. Nothing secret is added: the person is only a hint
+ * about who is reading, and the key is what actually opens the trip.
+ */
+export function readViewFragment(hash: string): { key: string; personId: string } {
+  const raw = hash.replace(/^#/, '').trim()
+  const dot = raw.indexOf('.')
+  if (dot < 0) return { key: raw, personId: '' }
+  return { key: raw.slice(0, dot), personId: raw.slice(dot + 1) }
 }
 
 /**

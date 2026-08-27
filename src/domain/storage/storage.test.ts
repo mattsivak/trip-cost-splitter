@@ -4,7 +4,14 @@ import { createTrip } from '../trip/factories'
 import { makeDrive, makeIdle, makeTrip } from '../trip/testing'
 import { createLocalTripStore, createMemoryStorage, TRIP_KEY_PREFIX } from './localTripStore'
 import { parseTrip } from './serialization'
-import { buildCopyUrl, buildEditUrl, buildViewUrl, decodeTripFromToken, encodeTripToToken } from './urlCodec'
+import {
+  buildCopyUrl,
+  buildEditUrl,
+  buildViewUrl,
+  decodeTripFromToken,
+  encodeTripToToken,
+  readViewFragment,
+} from './urlCodec'
 
 describe('parseTrip', () => {
   it('rejects anything that is not an object', () => {
@@ -393,5 +400,29 @@ describe('an expense of either kind', () => {
   it('leaves an undated extra alone', () => {
     const trip = parseTrip({ ...base, overheadCosts: [{ id: 'o1', label: 'Vignette', amount: 30000 }] })
     expect(trip?.overheadCosts[0]).not.toHaveProperty('date')
+  })
+})
+
+describe('a payment link that knows who it is for', () => {
+  it('carries the person after the key, in the fragment', () => {
+    const url = buildViewUrl('https://trips.example.com', 'trip-1', 'k'.repeat(32), 'jana')
+    expect(url).toBe(`https://trips.example.com/view/trip-1#${'k'.repeat(32)}.jana`)
+  })
+
+  it('is the plain group link when nobody is named', () => {
+    const url = buildViewUrl('https://trips.example.com', 'trip-1', 'k'.repeat(32))
+    expect(url).toBe(`https://trips.example.com/view/trip-1#${'k'.repeat(32)}`)
+  })
+
+  it('reads the key and the person back out', () => {
+    expect(readViewFragment(`#${'k'.repeat(32)}.jana`)).toEqual({ key: 'k'.repeat(32), personId: 'jana' })
+    expect(readViewFragment('k'.repeat(32))).toEqual({ key: 'k'.repeat(32), personId: '' })
+    expect(readViewFragment('')).toEqual({ key: '', personId: '' })
+  })
+
+  /** A trimmed or mangled fragment must not be read as a key with a person. */
+  it('keeps the key whole when there is no person on the end', () => {
+    expect(readViewFragment('#abc.').personId).toBe('')
+    expect(readViewFragment('#abc.').key).toBe('abc')
   })
 })

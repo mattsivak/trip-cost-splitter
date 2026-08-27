@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readViewFragment } from '~/src/domain/storage/urlCodec'
 import { calculateTrip } from '~/src/domain/trip/calculateTrip'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -18,10 +19,39 @@ const tripId = computed(() => String(route.params.id ?? ''))
 const trip = ref<Trip | null>(null)
 const status = ref<'loading' | 'ready' | 'missing' | 'unreachable'>('loading')
 const viewKey = ref('')
+
+/**
+ * Which of the names on this trip is holding the phone. It rides in the link
+ * the driver copies for them; failing that they say so once and this browser
+ * remembers, because a page that leads with "you owe 804" beats a table of
+ * eight names sorted by amount with nothing marking which line is yours.
+ */
+const readerId = ref('')
+
+const rememberKey = computed(() => `trip-cost-splitter:reader:${tripId.value}`)
+
+const reader = computed(
+  () => result.value?.people.find((person) => person.personId === readerId.value) ?? null,
+)
+
+const others = computed(
+  () => result.value?.people.filter((person) => person.personId !== readerId.value) ?? [],
+)
+
+function iAm(personId: string) {
+  readerId.value = personId
+  try {
+    window.localStorage.setItem(rememberKey.value, personId)
+  } catch {
+    // A browser refusing storage costs the memory, not the page.
+  }
+}
 const busyPersonId = ref<string | null>(null)
 const failed = ref('')
 
 const result = computed(() => (trip.value ? calculateTrip(trip.value) : null))
+
+const { money } = useMoney(() => trip.value?.currency ?? '')
 
 const path = computed(() => `/api/trips/${encodeURIComponent(tripId.value)}`)
 
@@ -46,7 +76,16 @@ async function open() {
 }
 
 onMounted(() => {
-  viewKey.value = window.location.hash.replace(/^#/, '').trim()
+  const fragment = readViewFragment(window.location.hash)
+  viewKey.value = fragment.key
+  readerId.value = fragment.personId
+  if (!readerId.value) {
+    try {
+      readerId.value = window.localStorage.getItem(rememberKey.value) ?? ''
+    } catch {
+      readerId.value = ''
+    }
+  }
   void open()
 })
 
@@ -88,60 +127,130 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · what you owe` : 'Tr
     </p>
   </div>
 
-  <div v-else class="stack">
-    <header class="section__head page-head">
+  <div v-else class="stack view">
+    <!--
+      The trip is the subtitle here, not the headline. The headline is the one
+      sentence the person holding the phone came for.
+    -->
+    <p v-if="reader" class="eyebrow">{{ trip.title }}</p>
+    <header v-else class="section__head page-head">
       <div>
-        <p class="eyebrow">What you owe</p>
+        <p class="eyebrow">What everyone owes</p>
         <h1>{{ trip.title }}</h1>
         <p class="section__lede">
           {{ formatKm(result.totalDistanceKm) }}
           <template v-if="trip.pricing.mode !== 'per-km'">
             · {{ formatBasis(trip, result.totalEnergy, result.totalDistanceKm) }}
           </template>
-          ·
-          {{ Math.round(result.totalExact / 100).toLocaleString('cs-CZ') }} {{ trip.currency }} in total
+          · {{ money(result.totalExact) }} in total
         </p>
       </div>
     </header>
 
-    <section class="section" style="margin-top: 0">
-      <SettleList
+    <!--
+      Nobody named in the link, so ask once — and show the group view underneath
+      meanwhile, rather than holding the page hostage to the question.
+    -->
+    <div v-if="!reader" class="view__who">
+      <h2>Which one are you?</h2>
+      <p class="hint">
+        So this page can lead with your amount instead of a list to find yourself in. It is remembered on this
+        device only.
+      </p>
+      <div class="button-row">
+        <button
+          v-for="person in result.people"
+          :key="person.personId"
+          type="button"
+          class="button--quiet"
+          @click="iAm(person.personId)"
+        >
+          {{ person.name }}
+        </button>
+      </div>
+    </div>
+
+    <template v-if="!reader">
+      <section class="section">
+        <SettleList
+          :trip="trip"
+          :people="result.people"
+          :busy-person-id="busyPersonId"
+          @toggle-paid="togglePaid"
+        />
+
+        <p v-if="failed" class="notice" style="margin-top: 12px">
+          <span class="notice__mark">!</span><span>{{ failed }}</span>
+        </p>
+      </section>
+
+      <details class="working">
+        <summary class="working__summary">
+          <span class="working__label">
+            <strong>See how this was worked out</strong>
+            <small>Every expense, every leg, and where each share came from</small>
+          </span>
+          <span class="working__chevron" aria-hidden="true">＋</span>
+        </summary>
+        <TripWorking :trip="trip" :result="result" />
+      </details>
+
+      <section v-if="result.warnings.length" class="section">
+        <p class="eyebrow">Worth knowing</p>
+        <WarningList :warnings="result.warnings" />
+      </section>
+    </template>
+
+    <template v-else>
+      <YouOwe
         :trip="trip"
-        :people="result.people"
-        :busy-person-id="busyPersonId"
+        :person="reader"
+        :busy="busyPersonId === reader.personId"
         @toggle-paid="togglePaid"
       />
 
-      <p v-if="failed" class="notice" style="margin-top: 12px">
+      <p v-if="failed" class="notice">
         <span class="notice__mark">!</span><span>{{ failed }}</span>
       </p>
-    </section>
 
-    <!--
-      The calculator can know that the total in front of you is missing money —
-      a receipt in a currency with no rate, fuel with nobody to charge it to.
-      Telling only the person collecting, and not the people being asked to pay,
-      is the wrong way round.
-    -->
-    <section v-if="result.warnings.length" class="section">
-      <p class="eyebrow">Worth knowing</p>
-      <WarningList :warnings="result.warnings" />
-    </section>
+      <!-- Why that number, in their own legs rather than everybody's tables. -->
+      <details class="working" open>
+        <summary class="working__summary">
+          <span class="working__label">
+            <strong>Why {{ money(Math.abs(reader.owes)) }}?</strong>
+            <small>The legs you were in the car for, and what they came to</small>
+          </span>
+          <span class="working__chevron" aria-hidden="true">＋</span>
+        </summary>
+        <YourLegs :trip="trip" :result="result" :person="reader" />
+      </details>
 
-    <!--
-      Not the point of the page — the buttons above are — but the first thing
-      anybody asks after "how much" is "for what", so it has to look like
-      something you can open rather than a footnote under the total.
-    -->
-    <details class="working">
-      <summary class="working__summary">
-        <span class="working__label">
-          <strong>See how this was worked out</strong>
-          <small>Every receipt, every stretch, and where your share came from</small>
-        </span>
-        <span class="working__chevron" aria-hidden="true">＋</span>
-      </summary>
-      <TripWorking :trip="trip" :result="result" />
-    </details>
+      <details class="working">
+        <summary class="working__summary">
+          <span class="working__label">
+            <strong>Everyone else</strong>
+            <small>{{ others.length }} more on this trip</small>
+          </span>
+          <span class="working__chevron" aria-hidden="true">＋</span>
+        </summary>
+        <SplitList :trip="trip" :result="result" />
+      </details>
+
+      <details class="working">
+        <summary class="working__summary">
+          <span class="working__label">
+            <strong>See how the whole trip was worked out</strong>
+            <small>Every expense, every leg, and where each share came from</small>
+          </span>
+          <span class="working__chevron" aria-hidden="true">＋</span>
+        </summary>
+        <TripWorking :trip="trip" :result="result" />
+      </details>
+
+      <section v-if="result.warnings.length" class="section">
+        <p class="eyebrow">Worth knowing</p>
+        <WarningList :warnings="result.warnings" />
+      </section>
+    </template>
   </div>
 </template>

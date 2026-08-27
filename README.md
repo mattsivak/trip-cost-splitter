@@ -158,6 +158,32 @@ The shared payment page names whose money each receipt was, and gives each
 person their own paid-and-net line in the working. Somebody who bought fuel on
 a trip should be able to open the link and see it counted.
 
+## The page your friends get
+
+Somebody opens a link in a group chat, on a phone, with no interest in the app.
+They used to get the owner's collections desk: the masthead, the owner's save
+badge, and a list of eight names sorted by amount with nothing marking which
+line was theirs.
+
+The driver can now copy **a link for each person** — the same view key, with the
+person's id after it in the fragment — and that page opens with the only
+sentence that matters: _Terka, you owe 804 Kč_, one full-width pay button, and,
+always visible under it, the details to send it by hand for when a Revolut link
+lands somewhere odd. Then _Why 804 Kč?_, open by default, answering with their
+own legs rather than everybody's tables. Everyone else's amounts, and the whole
+working, are folded away behind their own headings.
+
+Somebody who paid for more than their own share is told so — _you are owed
+300 Kč_ — and is never shown a button asking them to pay again.
+
+A link with no name in it still works: it asks _which one are you?_ once, shows
+the group view underneath meanwhile, and remembers the answer on that device.
+The name is only a hint about who is holding the phone; the key is what opens
+the trip, and it is unchanged.
+
+The app's own chrome stays off that page. The save badge belongs to whoever is
+editing, and the reader is not editing.
+
 ## One screen, not five steps
 
 A trip used to be a five-step wizard: Route, People, Assign, Split, Collect,
