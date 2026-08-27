@@ -80,7 +80,7 @@ export async function addPurchase(page: Page, label: string, amount: string, fue
   const line = page.locator('.ledger__line').last()
   await line.getByLabel('What it was for').fill(label)
   await line.getByLabel('Amount').fill(amount)
-  if (fuel) await line.locator('label.toggle', { hasText: 'pays for the driving' }).click()
+  if (fuel) await line.locator('.ledger__kind label.toggle', { hasText: 'Fuel' }).click()
   return line
 }
 

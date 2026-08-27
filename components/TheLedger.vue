@@ -7,7 +7,8 @@ import { insertAfter } from '~/src/domain/list'
 import { createBuy, createDrive, createStop, driveLabel } from '~/src/domain/trip/factories'
 import { reanchorIdleStops } from '~/src/domain/trip/reanchorIdleStops'
 import { ridden } from '~/src/domain/trip/energy'
-import type { DriveLine, StopLine, Trip, TripLine } from '~/src/domain/trip/types'
+import { describeAllocation } from '~/src/domain/trip/overhead'
+import type { BuyLine, DriveLine, StopLine, Trip, TripLine } from '~/src/domain/trip/types'
 
 /**
  * The trip as a ledger: what happened, in order, and what it cost.
@@ -26,10 +27,31 @@ const unit = computed(() => unitLabelFor(props.trip.energyKind))
 const perKm = computed(() => props.trip.pricing.mode === 'per-km')
 const fromReceipts = computed(() => props.trip.pricing.mode === 'from-receipts')
 
-/** What the toggle means, for the hover that answers "what is this?". */
-const fuelHint =
-  'On: this is fuel money. It pays for the driving, and each leg is charged for the fuel it used. ' +
-  'Off: it is shared between the people it was for, like a toll or a coffee.'
+/**
+ * What becomes of one purchase, said on its own row.
+ *
+ * Shared money is divided between people. Fuel money is divided by kilometres
+ * — it fills the pot the legs are charged against — but only where the
+ * receipts are what set the price. Priced per litre or per kilometre there is
+ * no pot to fill, and the money reaches nobody's bill; that was silent, and
+ * silence is what made this control unreadable.
+ */
+function fateOf(line: BuyLine): { text: string; warn: boolean } {
+  if (line.funds === 'people') {
+    const who = describeAllocation(line, props.trip.people)
+    if (who === 'nobody') return { text: 'charged to nobody', warn: true }
+    return { text: `split evenly between ${who}`, warn: false }
+  }
+
+  if (fromReceipts.value) {
+    return { text: 'charged by who was in the car for each leg', warn: false }
+  }
+
+  return {
+    text: `not split — the driving is priced ${perKm.value ? 'per km' : `by ${unit.value}`}`,
+    warn: true,
+  }
+}
 
 const stops = computed(() =>
   stopsDraft.value
@@ -322,27 +344,38 @@ function setRate(line: DriveLine | StopLine, major: number) {
         </div>
 
         <p v-if="line.kind === 'buy'" class="ledger__note">
-          <span class="ledger__tip-wrap">
+          <!--
+            The question is what you bought, not how the calculator files it.
+            "Pays for the driving" described the machinery; a person knows
+            whether the money was fuel or something the group shared.
+          -->
+          <span class="toggles ledger__kind">
             <label class="toggle toggle--tiny" :class="{ 'is-on': line.funds === 'fuel' }">
               <input
-                type="checkbox"
+                type="radio"
+                :name="`funds-${line.id}`"
                 :checked="line.funds === 'fuel'"
-                :aria-describedby="`tip-${line.id}`"
-                @change="line.funds = line.funds === 'fuel' ? 'people' : 'fuel'"
+                @change="line.funds = 'fuel'"
               />
-              <span>pays for the driving</span>
+              <span>Fuel</span>
             </label>
-            <span :id="`tip-${line.id}`" role="tooltip" class="ledger__tip">{{ fuelHint }}</span>
+            <label class="toggle toggle--tiny" :class="{ 'is-on': line.funds === 'people' }">
+              <input
+                type="radio"
+                :name="`funds-${line.id}`"
+                :checked="line.funds === 'people'"
+                @change="line.funds = 'people'"
+              />
+              <span>Shared</span>
+            </label>
           </span>
-          <!--
-            Fuel money funds the pool the legs are charged against. Priced any
-            other way there is no pool to fund, so this money reaches nobody's
-            bill — which is silent unless the row says it out loud.
-          -->
-          <span v-if="line.funds === 'fuel' && !fromReceipts" class="ledger__warn">
-            not split — the driving is priced {{ perKm ? 'per km' : `by ${unit}` }}
+
+          <!-- What will actually happen to this money, in one line. -->
+          <span :class="fateOf(line).warn ? 'ledger__warn' : 'ledger__fate'">
+            {{ fateOf(line).text }}
           </span>
         </p>
+
         <p v-else-if="priceNote(line)" class="ledger__note">{{ priceNote(line) }}</p>
       </li>
     </ol>
@@ -457,37 +490,13 @@ function setRate(line: DriveLine | StopLine, major: number) {
   margin-left: auto;
 }
 
-/*
- * A real tooltip rather than a `title`: the native one waits a second, hides
- * on touch, and cannot be reached by keyboard.
- */
-.ledger__tip-wrap {
-  position: relative;
-  display: inline-flex;
+.ledger__kind {
+  margin-bottom: 0;
+  gap: var(--s1);
 }
 
-.ledger__tip {
-  position: absolute;
-  bottom: calc(100% + var(--s1));
-  left: 0;
-  z-index: 5;
-  display: none;
-  width: max-content;
-  max-width: 34ch;
-  padding: var(--s2) var(--s3);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 6px 20px -12px rgba(0, 0, 0, 0.6);
-  font-size: var(--t-small);
-  line-height: 1.4;
-  white-space: normal;
-}
-
-.ledger__tip-wrap:hover .ledger__tip,
-.ledger__tip-wrap:focus-within .ledger__tip {
-  display: block;
+.ledger__fate {
+  color: var(--ink-faint);
 }
 
 .ledger__warn {

@@ -19,7 +19,7 @@ test('drives and purchases sit in one list, in trip order', async ({ page }) => 
   await addDrive(page, 'Olomouc', 'Brno', '80')
 
   await expect(page.locator('.ledger__line')).toHaveCount(3)
-  await expect(page.locator('.ledger__line').nth(1)).toContainText('pays for the driving')
+  await expect(page.locator('.ledger__line').nth(1)).toContainText('Shared')
 })
 
 test('a line can be moved through the order', async ({ page }) => {
@@ -141,22 +141,38 @@ test('a purchase in another currency asks for the day its rate belongs to', asyn
   await expect(line.getByLabel('Date')).toBeVisible()
 })
 
-
 /**
  * Money marked as paying for the driving funds the pool the legs are charged
  * against. On a trip priced per litre there is no pool to fund, so the money
  * changes nobody's bill — which is invisible unless the row says so.
  */
-test('a purchase that funds the driving says when it is not being divided', async ({ page }) => {
+test('every purchase says what will happen to the money', async ({ page }) => {
   await startTrip(page)
   await addPeople(page, ['Matthew', 'Janca'])
   await addDrive(page, 'A', 'B', '100')
-  const line = await addPurchase(page, 'Parking Vienna', '100', true)
 
-  await expect(line).toContainText('not split')
+  // Shared: divided between the people it was for.
+  const toll = await addPurchase(page, 'Parking Vienna', '100')
+  await expect(toll).toContainText('split evenly between everyone')
+
+  // Fuel: charged by who was in the car, but only where the receipts set the
+  // price. Priced per litre there is no pot to fill, and it says so.
+  const tank = await addPurchase(page, 'The tank', '600', true)
+  await expect(tank).toContainText('not split')
 
   await page.locator('.pricing').getByText('From the receipts').click()
-  await expect(line).not.toContainText('not split')
+  await expect(tank).toContainText('charged by who was in the car')
+})
+
+test('the choice is about what you bought, not about the arithmetic', async ({ page }) => {
+  await startTrip(page)
+  const line = await addPurchase(page, 'Parking Vienna', '100')
+
+  const kinds = line.locator('.ledger__kind label.toggle')
+  await expect(kinds).toHaveCount(2)
+  await expect(kinds.first()).toContainText('Fuel')
+  await expect(kinds.last()).toContainText('Shared')
+  await expect(kinds.last()).toHaveClass(/is-on/)
 })
 
 /**
@@ -221,16 +237,4 @@ test('the line follows the cursor, so you can see where it will land', async ({ 
   // Mid-drag, before the drop: the ledger already shows the new order.
   await expect(lines.first()).toHaveAttribute('aria-label', 'Coffee')
   await page.mouse.up()
-})
-
-test('the fuel toggle explains itself on hover', async ({ page }) => {
-  await startTrip(page)
-  const line = await addPurchase(page, 'The tank', '600')
-
-  const tip = line.getByRole('tooltip')
-  await expect(tip).toBeHidden()
-
-  await line.locator('label.toggle', { hasText: 'pays for the driving' }).hover()
-  await expect(tip).toBeVisible()
-  await expect(tip).toContainText(/fuel/i)
 })

@@ -167,9 +167,24 @@ invoice:
 - a **stop** — waiting somewhere, with the fuel it burned;
 - a **buy** — a tank, a toll, parking, a coffee, the apartment.
 
-A buy either **pays for the driving** — it funds the pool the drives draw
-from — or is **shared between people**. That flag is the only difference
-between a fuel receipt and a round of coffees, and it lives on the line.
+A buy is either **Fuel** or **Shared**, and the row says what that means for
+the money:
+
+- **Shared** — _split evenly between everyone_, or between the people it was
+  for. A toll, parking, a coffee, the apartment.
+- **Fuel** — _charged by who was in the car for each leg_. Fuel is not split
+  evenly, because people were aboard for different stretches: it fills the pot
+  the driving is charged from, and that pot is divided by kilometres.
+
+Shared money is split between people; fuel money is split by kilometres. That
+is the whole of the difference.
+
+The catch, and the row says this too: fuel money only sets the bill when the
+trip is priced **from the receipts**. Priced per litre or per kilometre the
+bill comes from the formula instead, so a fuel purchase is only a record of
+what the driver laid out and the row reads _not split — the driving is priced
+by L_. It used to say nothing at all, and money would vanish from the split
+with no explanation.
 
 Before this there were three lists that could not interleave: the drives in
 order, then the receipts, then the tolls. A coffee bought between two drives
