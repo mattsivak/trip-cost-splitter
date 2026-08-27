@@ -1,5 +1,42 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
+/** One person's line in the split, and its working. */
+const person = (page: Page, name: string): Locator => page.getByRole('group', { name: `${name}'s share` })
+
+async function workingOf(page: Page, name: string): Promise<Locator> {
+  const line = person(page, name)
+  await line.locator('summary').click()
+  return line.locator('.person__working')
+}
+
+/** One expense, named and priced. `kind` moves it out of fuel into extras. */
+async function addExpense(page: Page, label: string, amount: string, kind: 'Fuel' | 'Extra' = 'Fuel') {
+  await page.getByRole('button', { name: 'Add an expense' }).click()
+  const row = page.locator('.expense').last()
+  await row.getByLabel('What it was for').fill(label)
+  await row.getByLabel('Amount').fill(amount)
+  if (kind === 'Extra') {
+    await openSentence(row)
+    await row.locator('label.toggle', { hasText: 'Extra' }).click()
+    // Leave it shut either way, so a test that opens it finds it closed.
+    await row.getByRole('button', { name: 'Done' }).click()
+  }
+  return row
+}
+
+/** The tappable "split · who paid" line that opens an expense. */
+async function openSentence(row: Locator) {
+  await row
+    .getByRole('button', { name: /Fuel for the whole trip|Split evenly|Set for each|Charged to/ })
+    .click()
+}
+
+/** Put an expense in somebody's name, from the pills inside it. */
+async function payerIs(row: Locator, name: string) {
+  await openSentence(row)
+  await row.locator('.expense__payers label.toggle').filter({ hasText: name }).click()
+}
+
 /**
  * Money somebody other than the driver put down.
  *
@@ -40,42 +77,34 @@ async function tripPricedFromReceipts(page: Page) {
 
   await page.getByRole('button', { name: 'Split' }).click()
   await page.getByText('Price from the receipts').click()
-  await page.getByRole('button', { name: 'Add a receipt' }).click()
-
-  const receipt = page.locator('.entry-row').first()
-  await receipt.getByLabel('What it was for').fill('The tank')
-  await receipt.getByLabel('Amount').fill('400')
-  return receipt
+  return await addExpense(page, 'The tank', '400')
 }
-
-const cellFor = (page: Page, name: string, column: string): Locator =>
-  page.getByRole('row', { name: new RegExp(name) }).locator(`td[data-label="${column}"]`)
 
 test("a receipt can be put in somebody else's name", async ({ page }) => {
   const receipt = await tripPricedFromReceipts(page)
 
   // Unmarked, it is the driver's money, exactly as it always was.
-  await expect(cellFor(page, 'Matthew', 'Already paid')).toHaveCount(0)
+  await expect(await workingOf(page, 'Matthew')).toContainText('Already paid')
+  await expect(await workingOf(page, 'Janca')).not.toContainText('Already paid')
 
-  await receipt.getByLabel('Paid by').selectOption({ label: 'Janca' })
+  await payerIs(receipt, 'Janca')
 
-  await expect(cellFor(page, 'Janca', 'Already paid')).toHaveText('400,00 Kč')
-  await expect(cellFor(page, 'Matthew', 'Already paid')).toHaveText('0,00 Kč')
+  await expect(await workingOf(page, 'Janca')).toContainText('400,00 Kč')
 })
 
 test('somebody who laid out more than their share is owed the difference', async ({ page }) => {
   const receipt = await tripPricedFromReceipts(page)
-  await receipt.getByLabel('Paid by').selectOption({ label: 'Janca' })
+  await payerIs(receipt, 'Janca')
 
   // Janca owes 200 of the tank and paid 400, so 200 comes back to her.
   // Whole units, because a net position is what somebody actually transfers.
-  await expect(cellFor(page, 'Janca', 'Balance')).toContainText('200 Kč')
-  await expect(cellFor(page, 'Janca', 'Balance')).toContainText('gets back')
+  await expect(person(page, 'Janca')).toContainText('200 Kč')
+  await expect(person(page, 'Janca')).toContainText('gets back')
 })
 
 test('the person who is owed money is not asked to pay any', async ({ page }) => {
   const receipt = await tripPricedFromReceipts(page)
-  await receipt.getByLabel('Paid by').selectOption({ label: 'Janca' })
+  await payerIs(receipt, 'Janca')
 
   await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
@@ -87,7 +116,7 @@ test('the person who is owed money is not asked to pay any', async ({ page }) =>
 
 test('the shared page says whose money each receipt was', async ({ page }) => {
   const receipt = await tripPricedFromReceipts(page)
-  await receipt.getByLabel('Paid by').selectOption({ label: 'Janca' })
+  await payerIs(receipt, 'Janca')
 
   await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
@@ -111,36 +140,9 @@ test('the shared page says whose money each receipt was', async ({ page }) => {
  */
 test('the driver is in the payer list once, already chosen', async ({ page }) => {
   const receipt = await tripPricedFromReceipts(page)
-  const payer = receipt.getByLabel('Paid by')
+  await openSentence(receipt)
 
-  await expect(payer.getByRole('option', { name: /Matthew/ })).toHaveCount(1)
-  await expect(payer.getByRole('option', { name: 'Matthew (driver)' })).toHaveCount(1)
-  const matthew = await payer.getByRole('option', { name: /Matthew/ }).getAttribute('value')
-  await expect(payer).toHaveValue(matthew ?? '')
-})
-
-/**
- * A totals row has to line up with the columns above it. When upkeep is being
- * charged the head grows a column and the footer did not, so every figure in
- * the footer sat under the wrong heading.
- */
-test('the totals row lines up with the columns it totals', async ({ page }) => {
-  const receipt = await tripPricedFromReceipts(page)
-  await receipt.getByLabel('Paid by').selectOption({ label: 'Janca' })
-
-  await page.getByRole('button', { name: 'Route' }).click()
-  await page.getByLabel('Kč per km, car costs').fill('2')
-  await page.getByRole('button', { name: 'Split' }).click()
-
-  const split = page.getByRole('table').first()
-  const headings = await split.getByRole('columnheader').count()
-  const totals = split.getByRole('row', { name: /Total/ })
-
-  // Counting spans, not cells: the last one covers two columns on purpose.
-  const covered = await totals
-    .getByRole('cell')
-    .evaluateAll((cells) => cells.reduce((n, cell) => n + (cell as HTMLTableCellElement).colSpan, 0))
-  expect(covered).toBe(headings)
-  // And no cell of it is an empty labelled line on a phone.
-  await expect(totals.locator('td[data-label]:empty')).toHaveCount(0)
+  const payers = receipt.locator('.expense__payers label.toggle')
+  await expect(payers.filter({ hasText: 'Matthew' })).toHaveCount(1)
+  await expect(payers.filter({ hasText: 'Matthew' })).toHaveClass(/is-on/)
 })

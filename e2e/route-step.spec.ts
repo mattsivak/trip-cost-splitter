@@ -192,7 +192,6 @@ test('the split still reconciles after the route is reshaped', async ({ page }) 
 
   await page.getByRole('button', { name: 'Split' }).click()
 
-  const total = page.locator('tfoot td').last()
-  await expect(total).toBeVisible()
+  await expect(page.getByText(/Collect |Nothing to collect/)).toBeVisible()
   await expect(page.locator('.readout__cell').first().locator('.readout__value')).not.toHaveText('')
 })

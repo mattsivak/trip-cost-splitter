@@ -375,3 +375,23 @@ describe('who paid for a receipt or a cost', () => {
     expect(trip?.receipts[0]).not.toHaveProperty('paidBy')
   })
 })
+
+describe('an expense of either kind', () => {
+  const base = { title: 'Alps', people: [{ id: 'ann', name: 'Ann' }], driverId: 'ann' }
+
+  /** A toll paid on the way out is dated like any other expense, and the date
+   * is what picks the exchange rate for it. */
+  it('keeps the date on an extra, not only on a receipt', () => {
+    const trip = parseTrip({
+      ...base,
+      overheadCosts: [{ id: 'o1', label: 'Vignette', amount: 30000, date: '2026-08-14' }],
+    })
+
+    expect(trip?.overheadCosts[0]?.date).toBe('2026-08-14')
+  })
+
+  it('leaves an undated extra alone', () => {
+    const trip = parseTrip({ ...base, overheadCosts: [{ id: 'o1', label: 'Vignette', amount: 30000 }] })
+    expect(trip?.overheadCosts[0]).not.toHaveProperty('date')
+  })
+})

@@ -1,5 +1,36 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
+/** One person's line in the split, and its working. */
+const person = (page: Page, name: string): Locator => page.getByRole('group', { name: `${name}'s share` })
+
+async function workingOf(page: Page, name: string): Promise<Locator> {
+  const line = person(page, name)
+  await line.locator('summary').click()
+  return line.locator('.person__working')
+}
+
+/** One expense, named and priced. `kind` moves it out of fuel into extras. */
+async function addExpense(page: Page, label: string, amount: string, kind: 'Fuel' | 'Extra' = 'Fuel') {
+  await page.getByRole('button', { name: 'Add an expense' }).click()
+  const row = page.locator('.expense').last()
+  await row.getByLabel('What it was for').fill(label)
+  await row.getByLabel('Amount').fill(amount)
+  if (kind === 'Extra') {
+    await openSentence(row)
+    await row.locator('label.toggle', { hasText: 'Extra' }).click()
+    // Leave it shut either way, so a test that opens it finds it closed.
+    await row.getByRole('button', { name: 'Done' }).click()
+  }
+  return row
+}
+
+/** The tappable "split · who paid" line that opens an expense. */
+async function openSentence(row: Locator) {
+  await row
+    .getByRole('button', { name: /Fuel for the whole trip|Split evenly|Set for each|Charged to/ })
+    .click()
+}
+
 /**
  * Who a non-fuel cost is actually for.
  *
@@ -40,61 +71,51 @@ async function tripWithThree(page: Page) {
   await page.getByRole('button', { name: 'Split' }).click()
 }
 
-async function addCost(page: Page, label: string, amountMajor: string) {
-  await page.getByRole('button', { name: 'Add a cost' }).click()
-  const row = page.locator('.entry-row').last()
-  await row.getByLabel('What it was for').fill(label)
-  await row.getByLabel('Amount').fill(amountMajor)
-}
-
 /** The split control belonging to one cost, named after it. */
-const costBlock = (page: Page, label: string) => page.getByRole('region', { name: `How ${label} is split` })
-
-/** What one person is charged for non-fuel costs, in the step's own table. */
-const otherCell = (page: Page, name: string): Locator =>
-  page.getByRole('row', { name: new RegExp(name) }).locator('td[data-label="Extras"]')
+const costBlock = (page: Page, label: string) => page.getByRole('group', { name: label })
 
 test('a cost can be charged to only the people it was for', async ({ page }) => {
   await tripWithThree(page)
-  await addCost(page, 'Austrian vignette', '300')
+  await addExpense(page, 'Austrian vignette', '300', 'Extra')
 
   const cost = costBlock(page, 'Austrian vignette')
   await expect(cost).toContainText('everyone')
 
-  await cost.getByRole('button', { name: 'Change' }).click()
-  await cost.locator('label.toggle', { hasText: 'Terka' }).click()
+  await openSentence(cost)
+  await cost.locator('.expense__who label.toggle', { hasText: 'Terka' }).click()
 
   // The control says who is being charged without anybody opening it.
   await expect(cost).toContainText('Matthew and Janca')
 
-  await expect(otherCell(page, 'Janca')).toHaveText('150,00 Kč')
-  await expect(otherCell(page, 'Terka')).toHaveText('0,00 Kč')
+  await expect(await workingOf(page, 'Janca')).toContainText('150,00 Kč')
+  // Terka is not charged for it at all, so her working has no extras line.
+  await expect(await workingOf(page, 'Terka')).not.toContainText('Extras')
 })
 
 test('a cost can be split into the amounts each person actually owes', async ({ page }) => {
   await tripWithThree(page)
-  await addCost(page, 'Ferry', '300')
+  await addExpense(page, 'Ferry', '300', 'Extra')
 
   const cost = costBlock(page, 'Ferry')
-  await cost.getByRole('button', { name: 'Change' }).click()
-  await cost.locator('label.toggle', { hasText: 'Set each amount' }).click()
+  await openSentence(cost)
+  await cost.locator('.expense__who label.toggle', { hasText: 'Set each amount' }).click()
 
   await cost.getByLabel('Amount for Matthew').fill('200')
   await cost.getByLabel('Amount for Janca').fill('50')
   await cost.getByLabel('Amount for Terka').fill('50')
 
-  await expect(otherCell(page, 'Matthew')).toHaveText('200,00 Kč')
-  await expect(otherCell(page, 'Janca')).toHaveText('50,00 Kč')
-  await expect(otherCell(page, 'Terka')).toHaveText('50,00 Kč')
+  await expect(await workingOf(page, 'Matthew')).toContainText('200,00 Kč')
+  await expect(await workingOf(page, 'Janca')).toContainText('50,00 Kč')
+  await expect(await workingOf(page, 'Terka')).toContainText('50,00 Kč')
 })
 
 test('amounts that do not add up to the cost are called out', async ({ page }) => {
   await tripWithThree(page)
-  await addCost(page, 'Ferry', '300')
+  await addExpense(page, 'Ferry', '300', 'Extra')
 
   const cost = costBlock(page, 'Ferry')
-  await cost.getByRole('button', { name: 'Change' }).click()
-  await cost.locator('label.toggle', { hasText: 'Set each amount' }).click()
+  await openSentence(cost)
+  await cost.locator('.expense__who label.toggle', { hasText: 'Set each amount' }).click()
   // Seeded with the even split, so this is a real disagreement with the 300.
   await cost.getByLabel('Amount for Matthew').fill('250')
 
@@ -108,11 +129,11 @@ test('amounts that do not add up to the cost are called out', async ({ page }) =
  */
 test('the shared page says who a restricted cost was charged to', async ({ page }) => {
   await tripWithThree(page)
-  await addCost(page, 'Austrian vignette', '300')
+  await addExpense(page, 'Austrian vignette', '300', 'Extra')
 
   const cost = costBlock(page, 'Austrian vignette')
-  await cost.getByRole('button', { name: 'Change' }).click()
-  await cost.locator('label.toggle', { hasText: 'Terka' }).click()
+  await openSentence(cost)
+  await cost.locator('.expense__who label.toggle', { hasText: 'Terka' }).click()
 
   await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
@@ -139,12 +160,12 @@ test.describe('on a phone', () => {
 
   test('the split control gets the width of the screen', async ({ page }) => {
     await tripWithThree(page)
-    await addCost(page, 'Austrian vignette', '300')
+    await addExpense(page, 'Austrian vignette', '300', 'Extra')
 
     const cost = costBlock(page, 'Austrian vignette')
-    await cost.getByRole('button', { name: 'Change' }).click()
+    await openSentence(cost)
 
-    const box = await cost.locator('.overhead__panel').boundingBox()
+    const box = await cost.locator('.expense__panel').boundingBox()
     expect(box).not.toBeNull()
     expect(box!.width).toBeGreaterThan(300)
   })

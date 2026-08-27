@@ -1,4 +1,26 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
+
+/** One expense, named and priced. `kind` moves it out of fuel into extras. */
+async function addExpense(page: Page, label: string, amount: string, kind: 'Fuel' | 'Extra' = 'Fuel') {
+  await page.getByRole('button', { name: 'Add an expense' }).click()
+  const row = page.locator('.expense').last()
+  await row.getByLabel('What it was for').fill(label)
+  await row.getByLabel('Amount').fill(amount)
+  if (kind === 'Extra') {
+    await openSentence(row)
+    await row.locator('label.toggle', { hasText: 'Extra' }).click()
+    // Leave it shut either way, so a test that opens it finds it closed.
+    await row.getByRole('button', { name: 'Done' }).click()
+  }
+  return row
+}
+
+/** The tappable "split · who paid" line that opens an expense. */
+async function openSentence(row: Locator) {
+  await row
+    .getByRole('button', { name: /Fuel for the whole trip|Split evenly|Set for each|Charged to/ })
+    .click()
+}
 
 /**
  * Amounts paid in another currency. The rate feed is stubbed for the same
@@ -73,7 +95,7 @@ test('a receipt in euros is converted at the rate for its day', async ({ page })
   await stubRate(page)
   await startTrip(page)
 
-  await page.getByRole('button', { name: 'Add a receipt' }).click()
+  await page.getByRole('button', { name: 'Add an expense' }).click()
   await page.getByLabel('Date').fill('2026-08-14')
   await page.getByLabel('Paid in').selectOption('EUR')
   await page.getByLabel('Amount in EUR').fill('62.40')
@@ -88,7 +110,7 @@ test('the converted amount is what the split actually divides', async ({ page })
   await startTrip(page)
 
   await page.getByText('Price from the receipts').click()
-  await page.getByRole('button', { name: 'Add a receipt' }).click()
+  await page.getByRole('button', { name: 'Add an expense' }).click()
   await page.getByLabel('Paid in').selectOption('EUR')
   await page.getByLabel('Amount in EUR').fill('62.40')
 
@@ -101,7 +123,7 @@ test('typing your own rate drops the feed’s attribution', async ({ page }) => 
   await stubRate(page)
   await startTrip(page)
 
-  await page.getByRole('button', { name: 'Add a receipt' }).click()
+  await page.getByRole('button', { name: 'Add an expense' }).click()
   await page.getByLabel('Paid in').selectOption('EUR')
   await page.getByLabel('Amount in EUR').fill('100')
   await expect(page.getByText('ECB, 14. 8.')).toBeVisible()
@@ -116,7 +138,7 @@ test('an amount with no rate is called out rather than counted as nothing', asyn
   await stubNoRate(page)
   await startTrip(page)
 
-  await page.getByRole('button', { name: 'Add a receipt' }).click()
+  await page.getByRole('button', { name: 'Add an expense' }).click()
   await page.getByLabel('Paid in').selectOption('EUR')
   await page.getByLabel('Amount in EUR').fill('62.40')
 
@@ -128,8 +150,7 @@ test('tolls can be foreign too, and land in the split', async ({ page }) => {
   await stubRate(page)
   await startTrip(page)
 
-  await page.getByRole('button', { name: 'Add a cost' }).click()
-  const overhead = page.locator('.entry-row').filter({ has: page.getByLabel('Paid in') }).last()
+  const overhead = await addExpense(page, 'Motorway toll', '0', 'Extra')
   await overhead.getByLabel('Paid in').selectOption('EUR')
   await overhead.getByLabel('Amount in EUR').fill('12.40')
 
@@ -144,7 +165,7 @@ test('switching back to the trip’s own currency keeps the amount settled', asy
 
   // Priced from the receipts, so the converted figure is the whole total.
   await page.getByText('Price from the receipts').click()
-  await page.getByRole('button', { name: 'Add a receipt' }).click()
+  await page.getByRole('button', { name: 'Add an expense' }).click()
   await page.getByLabel('Paid in').selectOption('EUR')
   await page.getByLabel('Amount in EUR').fill('62.40')
   await expect(page.getByText('= 1 510,70 Kč')).toBeVisible()

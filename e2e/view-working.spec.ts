@@ -1,4 +1,26 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
+
+/** One expense, named and priced. `kind` moves it out of fuel into extras. */
+async function addExpense(page: Page, label: string, amount: string, kind: 'Fuel' | 'Extra' = 'Fuel') {
+  await page.getByRole('button', { name: 'Add an expense' }).click()
+  const row = page.locator('.expense').last()
+  await row.getByLabel('What it was for').fill(label)
+  await row.getByLabel('Amount').fill(amount)
+  if (kind === 'Extra') {
+    await openSentence(row)
+    await row.locator('label.toggle', { hasText: 'Extra' }).click()
+    // Leave it shut either way, so a test that opens it finds it closed.
+    await row.getByRole('button', { name: 'Done' }).click()
+  }
+  return row
+}
+
+/** The tappable "split · who paid" line that opens an expense. */
+async function openSentence(row: Locator) {
+  await row
+    .getByRole('button', { name: /Fuel for the whole trip|Split evenly|Set for each|Charged to/ })
+    .click()
+}
 
 /**
  * The working shown on the link you send the group.
@@ -136,10 +158,7 @@ async function openLinkForTripWithExtras(page: Page) {
   await page.getByRole('button', { name: 'Everyone', exact: true }).click()
 
   await page.getByRole('button', { name: 'Split' }).click()
-  await page.getByRole('button', { name: 'Add a cost' }).click()
-  const toll = page.locator('.entry-row').last()
-  await toll.getByLabel('What it was for').fill('Motorway toll')
-  await toll.getByLabel('Amount').fill('300')
+  await addExpense(page, 'Motorway toll', '300', 'Extra')
 
   await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')

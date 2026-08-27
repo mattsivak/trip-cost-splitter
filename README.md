@@ -158,6 +158,38 @@ The shared payment page names whose money each receipt was, and gives each
 person their own paid-and-net line in the working. Somebody who bought fuel on
 a trip should be able to open the link and see it counted.
 
+## One expense, one line per person
+
+There used to be two lists of money spent, with asymmetric powers: a receipt
+took a date and a foreign currency but could not say who it was for, and a toll
+said who it was for but took no date, so it could never have its own exchange
+rate. Neither slot fitted a hotel. That split is real — fuel funds the pool the
+legs are charged against, an extra is divided between the people it was for —
+but it is the calculator's business, and filing each expense into one of two
+forms was making the user do the filing.
+
+Now there is one list. An expense is a label, an amount, a date and a currency,
+and under it a sentence you tap: _Fuel for the whole trip · Matthew paid_, or
+_Split evenly between Matthew and Janca · Terka paid_. Opening it gives you
+three questions with three answers — what kind, who paid, and how it is split —
+each a row of pills. Moving an expense between fuel and extras keeps everything
+else about it.
+
+**Fuel keeps its privilege.** It funds the pool and is split by who was in the
+car for each leg, which is the thing this app does that a general expense
+splitter cannot. The row says so rather than leaving fuel looking like an extra
+that lost its control.
+
+And the split itself is one line per person: a name, one figure, and a verb —
+_sends_, _gets back_, _settled up_. Under it a bar showing what that figure is
+made of, scaled against the largest share so the bars compare between people.
+Tap the line for the arithmetic. It was an eight-column table to deliver one
+number each, and on a phone every row became a card of seven labelled lines
+with the only number that mattered last.
+
+The rounding the driver absorbs is now on the driver's line, where it belongs —
+_carries 0,50 Kč of rounding_. It was computed and shown nowhere.
+
 ## The words, settled once
 
 One word per thing, and a heading that never changes its text with the state of

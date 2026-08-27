@@ -1,35 +1,20 @@
 <script setup lang="ts">
 import { formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
-import { createOverhead, createReceipt } from '~/src/domain/trip/factories'
 import type { TripResult } from '~/src/domain/trip/result'
 import { formatTripSummary } from '~/src/domain/trip/summary'
 import type { Trip } from '~/src/domain/trip/types'
 
 const props = defineProps<{ trip: Trip; result: TripResult }>()
 
-const { money, exact } = useMoney(() => props.trip.currency)
+const { exact } = useMoney(() => props.trip.currency)
 const copied = ref(false)
 
 const summary = computed(() => formatTripSummary(props.trip, props.result))
-
-/**
- * Only worth two more columns once somebody other than the driver has put
- * money down. On the ordinary trip the net position and the share are the same
- * number, and printing it twice teaches nobody anything.
- */
-const sharedUpFront = computed(() =>
-  props.result.people.some((person) => !person.isDriver && person.fronted > 0),
-)
 
 function setMode(mode: Trip['pricing']['mode']) {
   if (mode === 'from-receipts') props.trip.pricing = { mode }
   else if (mode === 'per-km') props.trip.pricing = { mode, ratePerKm: 0 }
   else props.trip.pricing = { mode: 'fixed-price', pricePerUnit: 0 }
-}
-
-/** How much of the trip one person was there for, in whatever it is measured in. */
-function shareOf(person: TripResult['people'][number]): string {
-  return formatBasis(props.trip, person.energy, person.distanceKm)
 }
 
 /** What the split was measured from, in the same units the rest of the page uses. */
@@ -105,58 +90,7 @@ async function copy() {
 
       <EnergyPrice :trip="trip" />
 
-      <div class="field-row field-row--entries">
-        <div class="stack stack--tight">
-          <p class="eyebrow">Receipts</p>
-          <div v-for="receipt in trip.receipts" :key="receipt.id" class="entry-row">
-            <input v-model="receipt.label" class="entry-row__label" aria-label="What it was for" />
-            <input v-model="receipt.date" type="date" class="entry-row__date" aria-label="Date" />
-            <AmountField :trip="trip" :entry="receipt" />
-            <PaidByField :trip="trip" :entry="receipt" />
-            <button
-              type="button"
-              class="button--danger"
-              @click="trip.receipts = trip.receipts.filter((entry) => entry.id !== receipt.id)"
-            >
-              Remove
-            </button>
-          </div>
-          <div class="button-row">
-            <button type="button" class="button--quiet" @click="trip.receipts.push(createReceipt())">
-              Add a receipt
-            </button>
-          </div>
-          <p class="hint">Paid abroad? Change the currency and the rate for that day is filled in for you.</p>
-        </div>
-
-        <div class="stack stack--tight">
-          <p class="eyebrow">Extras</p>
-          <div v-for="cost in trip.overheadCosts" :key="cost.id" class="overhead">
-            <div class="entry-row">
-              <input v-model="cost.label" class="entry-row__label" aria-label="What it was for" />
-              <AmountField :trip="trip" :entry="cost" />
-              <PaidByField :trip="trip" :entry="cost" />
-              <button
-                type="button"
-                class="button--danger"
-                @click="trip.overheadCosts = trip.overheadCosts.filter((entry) => entry.id !== cost.id)"
-              >
-                Remove
-              </button>
-            </div>
-            <OverheadSplit :trip="trip" :cost="cost" />
-          </div>
-          <div class="button-row">
-            <button type="button" class="button--quiet" @click="trip.overheadCosts.push(createOverhead())">
-              Add a cost
-            </button>
-          </div>
-          <p class="hint">
-            Split evenly between everyone on the trip, unless a cost says otherwise — a vignette only the
-            people who crossed the border needed, a ferry ticket somebody got at half price.
-          </p>
-        </div>
-      </div>
+      <ExpenseList :trip="trip" />
     </section>
 
     <WarningList :warnings="result.warnings" />
@@ -173,79 +107,7 @@ async function copy() {
         </p>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Person</th>
-              <th class="is-figure">Fuel</th>
-              <th v-if="result.maintenanceTotal > 0" class="is-figure">Car</th>
-              <th class="is-figure">Extras</th>
-              <th class="is-figure">Their share</th>
-              <th v-if="sharedUpFront" class="is-figure">Already paid</th>
-              <th class="is-figure">To pay</th>
-              <th v-if="sharedUpFront" class="is-figure">Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="person in result.people"
-              :key="person.personId"
-              :class="{ 'is-driver': person.isDriver }"
-            >
-              <td class="is-rowhead">
-                <span class="cell-name">
-                  <strong>{{ person.name }}</strong>
-                  <small>
-                    {{ person.isDriver ? 'driver · ' : '' }}{{ shareOf(person) }} over
-                    {{ person.segmentIds.length }}
-                    {{ person.segmentIds.length === 1 ? 'leg' : 'legs' }}
-                  </small>
-                </span>
-              </td>
-              <td class="is-figure" data-label="Fuel">{{ exact(person.fuelShare) }}</td>
-              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Car">
-                {{ exact(person.maintenanceShare) }}
-              </td>
-              <td class="is-figure" data-label="Extras">{{ exact(person.overheadShare) }}</td>
-              <td class="is-figure" data-label="Their share">{{ exact(person.exactTotal) }}</td>
-              <td v-if="sharedUpFront" class="is-figure" data-label="Already paid">
-                {{ exact(person.fronted) }}
-              </td>
-              <td class="is-figure" data-label="To pay">
-                <span class="total">{{ money(person.payable) }}</span>
-              </td>
-              <td v-if="sharedUpFront" class="is-figure" data-label="Balance">
-                <span class="cell-name">
-                  <strong>{{ money(Math.abs(person.owes)) }}</strong>
-                  <small>{{ person.owes < 0 ? 'gets back' : person.owes > 0 ? 'sends' : 'settled' }}</small>
-                </span>
-              </td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td class="is-rowhead">Total</td>
-              <td class="is-figure" data-label="Fuel">{{ exact(result.fuelTotal) }}</td>
-              <!-- The head grows this column when upkeep is charged, so the
-                   totals row has to grow it too or every figure below shifts. -->
-              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Car">
-                {{ exact(result.maintenanceTotal) }}
-              </td>
-              <td class="is-figure" data-label="Extras">{{ exact(result.overheadTotal) }}</td>
-              <td class="is-figure" data-label="Their share">{{ exact(result.totalExact) }}</td>
-              <td v-if="sharedUpFront" class="is-figure" data-label="Already paid">
-                {{ exact(result.frontedTotal) }}
-              </td>
-              <!-- Nothing to total under Net: the nets are a position, not a
-                   pot, and an empty cell is an empty labelled line on a phone. -->
-              <td class="is-figure" :colspan="sharedUpFront ? 2 : 1" data-label="To pay">
-                {{ money(result.totalPayable) }}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <SplitList :trip="trip" :result="result" />
     </section>
 
     <section class="section">

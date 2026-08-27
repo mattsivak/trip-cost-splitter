@@ -115,6 +115,11 @@ export interface OverheadCost {
   /** Set when the cost was paid in another currency. */
   foreign?: ForeignAmount
   /**
+   * The day it was paid, which is also the day whose exchange rate applies.
+   * Optional, exactly as on a receipt — the two are the same kind of thing.
+   */
+  date?: string
+  /**
    * Who actually put the money down. Absent means the driver, which is what
    * every trip written before this field existed meant by saying nothing.
    */

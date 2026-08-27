@@ -156,6 +156,7 @@ function parseOverhead(value: unknown, knownPeople: ReadonlySet<string>): Overhe
 
   const payer = str(value.paidBy)
   if (payer && knownPeople.has(payer)) cost.paidBy = payer
+  if (str(value.date)) cost.date = str(value.date)
 
   const foreign = parseForeign(value.foreign)
   if (foreign) {

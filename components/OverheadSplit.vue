@@ -12,11 +12,18 @@ import type { PersonId, Trip } from '~/src/domain/trip/types'
  * tolls really are shared evenly, and the common case should stay a single line
  * of text rather than a form.
  */
-const props = defineProps<{ trip: Trip; cost: Trip['overheadCosts'][number] }>()
+const props = defineProps<{
+  trip: Trip
+  cost: Trip['overheadCosts'][number]
+  /** Inside an expense row the sentence above it is the summary, so drop ours. */
+  embedded?: boolean
+}>()
 
 const { exact } = useMoney(() => props.trip.currency)
 
 const open = ref(false)
+
+const showing = computed(() => props.embedded || open.value)
 
 const everyone = computed(() => props.trip.people.map((person) => person.id))
 
@@ -105,14 +112,15 @@ function setAmount(personId: PersonId, value: string) {
 
 <template>
   <section class="overhead__split" :aria-label="`How ${cost.label || 'this cost'} is split`">
-    <p class="overhead__summary">
+    <p v-if="!embedded" class="overhead__summary">
       <span class="hint">{{ summary }}</span>
       <button type="button" class="button--quiet" @click="open = !open">
         {{ open ? 'Done' : 'Change' }}
       </button>
     </p>
 
-    <div v-if="open" class="overhead__panel stack stack--tight">
+    <div v-if="showing" class="overhead__panel stack stack--tight" :class="{ 'is-bare': embedded }">
+      <p v-if="embedded" class="eyebrow">How it is split</p>
       <div class="toggles">
         <label class="toggle" :class="{ 'is-on': cost.allocation.type === 'even' }">
           <input
@@ -135,6 +143,7 @@ function setAmount(personId: PersonId, value: string) {
       </div>
 
       <template v-if="cost.allocation.type === 'even'">
+        <p class="eyebrow">Who it was for</p>
         <OccupantToggles
           :people="trip.people"
           :occupant-ids="targets"
@@ -175,6 +184,12 @@ function setAmount(personId: PersonId, value: string) {
   justify-content: space-between;
   gap: 12px;
   margin: 0;
+}
+
+.overhead__panel.is-bare {
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 .overhead__panel {

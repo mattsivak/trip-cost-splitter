@@ -103,13 +103,16 @@ test('car costs are charged on the consumption basis too', async ({ page }) => {
   await expect(readout).toContainText('10,0 L')
 })
 
-test('a car column appears in the split only once some is charged', async ({ page }) => {
+test('car costs show in a share only once some are charged', async ({ page }) => {
   await startTrip(page)
   await page.getByRole('button', { name: 'Split' }).click()
-  await expect(page.getByRole('columnheader', { name: 'Car' })).toHaveCount(0)
+
+  const matthew = page.getByRole('group', { name: /'s share/ }).first()
+  await matthew.locator('summary').click()
+  await expect(matthew.locator('.person__working')).not.toContainText('Car costs')
 
   await page.getByLabel('Kč per km, car costs').fill('2')
-  await expect(page.getByRole('columnheader', { name: 'Car' })).toBeVisible()
+  await expect(matthew.locator('.person__working')).toContainText('Car costs')
 })
 
 test('a waiting stop is priced as money when the trip is priced per km', async ({ page }) => {
