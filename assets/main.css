@@ -41,7 +41,32 @@
   --banding: rgba(25, 27, 25, 0.014);
   --hover: rgba(25, 27, 25, 0.05);
 
+  /*
+   * Six type roles and no more. Before this there were twenty-two font sizes,
+   * six of them doing the identical job — the uppercase mono micro-label —
+   * which is why a field caption, a column heading and a section title all read
+   * at the same rank and nothing on the page looked more important than
+   * anything else.
+   */
+  --t-display: clamp(1.6rem, 4vw, 2.1rem);
+  --t-title: 1.15rem;
+  --t-sub: 0.95rem;
+  --t-body: 0.9375rem;
+  --t-small: 0.8rem;
+  --t-micro: 0.63rem;
+  --t-figure: 1rem;
+  --t-figure-lg: clamp(1.15rem, 3.2vw, 1.6rem);
+  --tracking-micro: 0.14em;
+
+  /* Seven stops. The old scale had twelve multipliers and no rhythm. */
   --step: 4px;
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s8: 48px;
   --radius: 3px;
 
   --font-ui: 'Archivo', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -146,13 +171,13 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  font-size: var(--t-display);
 }
 h2 {
-  font-size: 1.15rem;
+  font-size: var(--t-title);
 }
 h3 {
-  font-size: 0.95rem;
+  font-size: var(--t-sub);
 }
 
 p {
@@ -168,10 +193,16 @@ td .figure {
   font-feature-settings: 'tnum' 1;
 }
 
-.eyebrow {
+/*
+ * The one micro-label. Eyebrows, field captions, column headings, the save
+ * badge and the theme switch are all this — they were five declarations at five
+ * sizes, which is a hierarchy that says nothing.
+ */
+.eyebrow,
+.micro {
   font-family: var(--font-figure);
-  font-size: 0.65rem;
-  letter-spacing: 0.16em;
+  font-size: var(--t-micro);
+  letter-spacing: var(--tracking-micro);
   text-transform: uppercase;
   color: var(--ink-faint);
 }
@@ -179,7 +210,7 @@ td .figure {
 .shell {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 0 calc(var(--step) * 5) calc(var(--step) * 20);
+  padding: 0 var(--s5) var(--s8);
 }
 
 /* ---------- masthead ---------- */
@@ -198,43 +229,43 @@ td .figure {
   z-index: 20;
   background: var(--page);
   border-bottom: 2px solid var(--rule-strong);
-  margin-bottom: calc(var(--step) * 6);
+  margin-bottom: var(--s5);
 }
 
 .masthead__inner {
   max-width: 1080px;
   margin: 0 auto;
-  padding: calc(var(--step) * 6) calc(var(--step) * 5) calc(var(--step) * 3);
+  padding: var(--s5) var(--s5) var(--s3);
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: calc(var(--step) * 4);
+  gap: var(--s4);
   flex-wrap: wrap;
 }
 
 .masthead__tools {
   display: flex;
   align-items: center;
-  gap: calc(var(--step) * 3);
+  gap: var(--s3);
 }
 
 .masthead__mark {
   display: flex;
   align-items: baseline;
-  gap: calc(var(--step) * 2);
+  gap: var(--s2);
   text-decoration: none;
   color: inherit;
 }
 
 .masthead__mark strong {
-  font-size: 1.05rem;
+  font-size: var(--t-title);
   font-weight: 700;
   letter-spacing: -0.03em;
 }
 
 .masthead nav {
   display: flex;
-  gap: calc(var(--step) * 4);
+  gap: var(--s4);
 }
 
 /* ---------- save state ---------- */
@@ -242,10 +273,10 @@ td .figure {
 .save-state {
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--step) * 1.5);
+  gap: var(--s2);
   margin: 0;
   font-family: var(--font-figure);
-  font-size: 0.62rem;
+  font-size: var(--t-micro);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -255,7 +286,7 @@ td .figure {
 .save-state__mark {
   /* Inline-block or the spinner's rotation would not apply. */
   display: inline-block;
-  font-size: 0.8rem;
+  font-size: var(--t-small);
   line-height: 1;
 }
 
@@ -272,7 +303,7 @@ td .figure {
   color: var(--flag);
   background: var(--flag-soft);
   border-radius: var(--radius);
-  padding: calc(var(--step) * 1) calc(var(--step) * 2);
+  padding: var(--s1) var(--s2);
 }
 
 .save-state__retry {
@@ -283,7 +314,7 @@ td .figure {
   font-size: inherit;
   letter-spacing: inherit;
   text-transform: inherit;
-  padding: calc(var(--step) * 0.5) calc(var(--step) * 1.5);
+  padding: var(--s1) var(--s2);
 }
 
 .save-state__retry:hover {
@@ -311,27 +342,27 @@ td .figure {
   color: var(--ink);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  padding: calc(var(--step) * 4) calc(var(--step) * 5);
+  padding: var(--s4) var(--s5);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: calc(var(--step) * 4);
+  gap: var(--s4);
 }
 
 .readout__cell {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--step) * 1);
+  gap: var(--s1);
   min-width: 0;
 }
 
 .readout__cell + .readout__cell {
-  padding-left: calc(var(--step) * 4);
+  padding-left: var(--s4);
   border-left: 1px solid var(--rule);
 }
 
 .readout__label {
   font-family: var(--font-figure);
-  font-size: 0.6rem;
+  font-size: var(--t-micro);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -359,7 +390,7 @@ td .figure {
 
 .readout__note {
   font-family: var(--font-figure);
-  font-size: 0.62rem;
+  font-size: var(--t-micro);
   color: var(--ink-faint);
 }
 
@@ -377,7 +408,7 @@ td .figure {
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius);
   overflow: hidden;
-  margin: calc(var(--step) * 6) 0;
+  margin: var(--s5) 0;
   background: var(--surface);
 }
 
@@ -386,7 +417,7 @@ td .figure {
   border: 0;
   border-right: 1px solid var(--rule);
   background: transparent;
-  padding: calc(var(--step) * 3) calc(var(--step) * 3);
+  padding: var(--s3) var(--s3);
   text-align: left;
   cursor: pointer;
   display: flex;
@@ -418,19 +449,19 @@ td .figure {
 
 .rail__index {
   font-family: var(--font-figure);
-  font-size: 0.62rem;
+  font-size: var(--t-micro);
   letter-spacing: 0.14em;
   opacity: 0.65;
 }
 
 .rail__name {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--t-sub);
   letter-spacing: -0.01em;
 }
 
 .rail__hint {
-  font-size: 0.72rem;
+  font-size: var(--t-small);
   opacity: 0.7;
   line-height: 1.3;
 }
@@ -469,25 +500,25 @@ td .figure {
 /* ---------- sections and rules ---------- */
 
 .section {
-  margin-top: calc(var(--step) * 8);
+  margin-top: var(--s6);
 }
 
 .section__head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: calc(var(--step) * 4);
-  padding-bottom: calc(var(--step) * 2);
+  gap: var(--s4);
+  padding-bottom: var(--s2);
   border-bottom: 1px solid var(--rule-strong);
-  margin-bottom: calc(var(--step) * 4);
+  margin-bottom: var(--s4);
   flex-wrap: wrap;
 }
 
 .section__lede {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--t-small);
   max-width: 62ch;
-  margin-top: calc(var(--step) * 1);
+  margin-top: var(--s1);
 }
 
 /* ---------- controls ---------- */
@@ -495,13 +526,13 @@ td .figure {
 .field {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--step) * 1);
+  gap: var(--s1);
   min-width: 0;
 }
 
 .field > span {
   font-family: var(--font-figure);
-  font-size: 0.62rem;
+  font-size: var(--t-micro);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -512,7 +543,7 @@ textarea,
 select {
   font: inherit;
   width: 100%;
-  padding: calc(var(--step) * 2) calc(var(--step) * 2.5);
+  padding: var(--s2) var(--s3);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius);
   background: var(--surface);
@@ -523,7 +554,7 @@ textarea {
   resize: vertical;
   line-height: 1.6;
   font-family: var(--font-figure);
-  font-size: 0.85rem;
+  font-size: var(--t-body);
 }
 
 input:focus-visible,
@@ -538,14 +569,14 @@ a:focus-visible {
 .field-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: calc(var(--step) * 3);
+  gap: var(--s3);
 }
 
 button {
   font: inherit;
   font-weight: 600;
-  font-size: 0.85rem;
-  padding: calc(var(--step) * 2) calc(var(--step) * 3.5);
+  font-size: var(--t-small);
+  padding: var(--s2) var(--s4);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
   background: var(--accent);
@@ -577,8 +608,8 @@ button:disabled {
   background: transparent;
   border-color: transparent;
   color: var(--flag);
-  padding: calc(var(--step) * 1) calc(var(--step) * 1.5);
-  font-size: 0.75rem;
+  padding: var(--s1) var(--s2);
+  font-size: var(--t-small);
 }
 
 .button--danger:hover {
@@ -587,7 +618,7 @@ button:disabled {
 
 .button-row {
   display: flex;
-  gap: calc(var(--step) * 2);
+  gap: var(--s2);
   flex-wrap: wrap;
   align-items: center;
 }
@@ -597,18 +628,18 @@ button:disabled {
 .toggles {
   display: flex;
   flex-wrap: wrap;
-  gap: calc(var(--step) * 1.5);
+  gap: var(--s2);
 }
 
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--step) * 1.5);
-  padding: calc(var(--step) * 1.25) calc(var(--step) * 2.5);
+  gap: var(--s2);
+  padding: var(--s1) var(--s3);
   border: 1px solid var(--rule-strong);
   border-radius: 100px;
   background: var(--surface);
-  font-size: 0.82rem;
+  font-size: var(--t-small);
   cursor: pointer;
   user-select: none;
 }
@@ -624,15 +655,30 @@ button:disabled {
   border-color: var(--accent);
 }
 
+/*
+ * Chosen, and the choice is about the money: a pill answers "was this person in
+ * the car", and a dozen of them have to be readable across a row at a glance,
+ * so it fills. A view preference — the theme, the step you are looking at —
+ * gets the quiet version of the same idea below. One rule, one named exception.
+ */
 .toggle.is-on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
 }
 
+/* Chosen, but only a view: soft ground, accent rule, ordinary ink. */
+.is-chosen,
+.theme__option.is-on,
+.rail__step[aria-current='step'] {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--ink);
+}
+
 .toggle__share {
   font-family: var(--font-figure);
-  font-size: 0.7rem;
+  font-size: var(--t-micro);
   opacity: 0.7;
 }
 
@@ -659,7 +705,7 @@ button:disabled {
   justify-content: center;
   border-right: 1px solid var(--page);
   font-family: var(--font-figure);
-  font-size: 0.62rem;
+  font-size: var(--t-micro);
   letter-spacing: 0.02em;
   color: var(--bar-ink);
   background: var(--bar-a);
@@ -689,9 +735,9 @@ button:disabled {
 .litrebar__empty {
   display: flex;
   align-items: center;
-  padding-left: calc(var(--step) * 2);
+  padding-left: var(--s2);
   font-family: var(--font-figure);
-  font-size: 0.62rem;
+  font-size: var(--t-micro);
   color: var(--ink-faint);
 }
 
@@ -700,15 +746,15 @@ button:disabled {
 .segment {
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  padding: calc(var(--step) * 3.5);
+  padding: var(--s4);
   background: var(--surface);
   display: flex;
   flex-direction: column;
-  gap: calc(var(--step) * 3);
+  gap: var(--s3);
 }
 
 .segment + .segment {
-  margin-top: calc(var(--step) * 2.5);
+  margin-top: var(--s3);
 }
 
 .segment--idle {
@@ -719,7 +765,7 @@ button:disabled {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: calc(var(--step) * 3);
+  gap: var(--s3);
 }
 
 .segment__title {
@@ -733,7 +779,7 @@ button:disabled {
 
 .segment__meta {
   font-family: var(--font-figure);
-  font-size: 0.7rem;
+  font-size: var(--t-small);
   color: var(--ink-faint);
 }
 
@@ -749,25 +795,25 @@ button:disabled {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: var(--t-body);
   min-width: 520px;
 }
 
 th {
   text-align: left;
   font-family: var(--font-figure);
-  font-size: 0.6rem;
+  font-size: var(--t-micro);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
   font-weight: 500;
-  padding: calc(var(--step) * 2.5) calc(var(--step) * 3);
+  padding: var(--s3) var(--s3);
   border-bottom: 1px solid var(--rule-strong);
   white-space: nowrap;
 }
 
 td {
-  padding: calc(var(--step) * 2.5) calc(var(--step) * 3);
+  padding: var(--s3) var(--s3);
   border-bottom: 1px solid var(--rule);
   vertical-align: baseline;
 }
@@ -795,13 +841,13 @@ tr.is-driver {
 
 .cell-name small {
   font-family: var(--font-figure);
-  font-size: 0.65rem;
+  font-size: var(--t-small);
   color: var(--ink-faint);
 }
 
 td .total {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--t-figure);
 }
 
 tfoot td {
@@ -813,22 +859,22 @@ tfoot td {
 
 .notice {
   display: flex;
-  gap: calc(var(--step) * 2.5);
-  padding: calc(var(--step) * 3);
+  gap: var(--s3);
+  padding: var(--s3);
   border-left: 3px solid var(--flag);
   background: var(--flag-soft);
   border-radius: 0 var(--radius) var(--radius) 0;
-  font-size: 0.85rem;
+  font-size: var(--t-small);
   line-height: 1.45;
 }
 
 .notice + .notice {
-  margin-top: calc(var(--step) * 2);
+  margin-top: var(--s2);
 }
 
 .notice__mark {
   font-family: var(--font-figure);
-  font-size: 0.7rem;
+  font-size: var(--t-micro);
   color: var(--flag);
   flex-shrink: 0;
   padding-top: 2px;
@@ -837,13 +883,13 @@ tfoot td {
 .empty {
   border: 1px dashed var(--rule-strong);
   border-radius: var(--radius);
-  padding: calc(var(--step) * 8) calc(var(--step) * 5);
+  padding: var(--s6) var(--s5);
   text-align: center;
   color: var(--ink-soft);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(var(--step) * 3);
+  gap: var(--s3);
 }
 
 /* ---------- trip list ---------- */
@@ -855,8 +901,8 @@ tfoot td {
 .trip-row {
   display: flex;
   align-items: center;
-  gap: calc(var(--step) * 4);
-  padding: calc(var(--step) * 3.5) 0;
+  gap: var(--s4);
+  padding: var(--s4) 0;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -877,7 +923,7 @@ tfoot td {
 
 .trip-row__meta {
   font-family: var(--font-figure);
-  font-size: 0.7rem;
+  font-size: var(--t-small);
   color: var(--ink-faint);
 }
 
@@ -893,17 +939,17 @@ tfoot td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(var(--step) * 3);
-  padding: calc(var(--step) * 2.5) calc(var(--step) * 3);
+  gap: var(--s3);
+  padding: var(--s3) var(--s3);
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
 }
 
 .share pre {
   margin: 0;
-  padding: calc(var(--step) * 4);
+  padding: var(--s4);
   font-family: var(--font-figure);
-  font-size: 0.78rem;
+  font-size: var(--t-small);
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
@@ -913,28 +959,29 @@ tfoot td {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--step) * 3);
+  gap: var(--s3);
 }
 
 .stack--tight {
-  gap: calc(var(--step) * 2);
+  gap: var(--s2);
 }
 
+/* One caption size. It had nine class names and four sizes. */
 .muted {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--t-small);
 }
 
 .hint {
   color: var(--ink-faint);
-  font-size: 0.78rem;
+  font-size: var(--t-small);
   line-height: 1.45;
 }
 
 @media (max-width: 560px) {
   .shell {
-    padding-left: calc(var(--step) * 3.5);
-    padding-right: calc(var(--step) * 3.5);
+    padding-left: var(--s4);
+    padding-right: var(--s4);
   }
   .readout__cell + .readout__cell {
     padding-left: 0;
@@ -949,7 +996,7 @@ tfoot td {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: calc(var(--step) * 1.5) calc(var(--step) * 1.5);
+  padding: var(--s2) var(--s2);
   margin-top: 2px;
   border: 1px solid var(--rule);
   border-radius: var(--radius);
@@ -1013,10 +1060,10 @@ tfoot td {
   background: transparent;
   color: var(--ink-faint);
   font-family: var(--font-figure);
-  font-size: 0.62rem;
+  font-size: var(--t-micro);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: calc(var(--step) * 1.5) calc(var(--step) * 2);
+  padding: var(--s2) var(--s2);
 }
 
 .theme__option:last-child {
@@ -1039,8 +1086,8 @@ tfoot td {
 .settle-row {
   display: flex;
   align-items: center;
-  gap: calc(var(--step) * 3);
-  padding: calc(var(--step) * 3) 0;
+  gap: var(--s3);
+  padding: var(--s3) 0;
   border-bottom: 1px solid var(--rule);
   flex-wrap: wrap;
 }
@@ -1057,11 +1104,17 @@ tfoot td {
   gap: 1px;
 }
 
+/*
+ * The accent belongs to figures somebody acts on. This is the one — what a
+ * person actually hands over — and it was plain ink while the theme switch
+ * was tinted.
+ */
 .settle-row__amount {
   font-family: var(--font-figure);
   font-variant-numeric: tabular-nums;
-  font-size: 1rem;
+  font-size: var(--t-figure);
   font-weight: 600;
+  color: var(--accent);
   min-width: 96px;
   text-align: right;
 }
@@ -1075,7 +1128,7 @@ tfoot td {
 
 .paid-mark {
   font-family: var(--font-figure);
-  font-size: 0.65rem;
+  font-size: var(--t-small);
   color: var(--accent);
   white-space: nowrap;
 }
@@ -1083,13 +1136,13 @@ tfoot td {
 .pay-link {
   display: inline-flex;
   align-items: center;
-  padding: calc(var(--step) * 1.5) calc(var(--step) * 3);
+  padding: var(--s2) var(--s3);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
   background: var(--accent);
   color: var(--on-accent);
   text-decoration: none;
-  font-size: 0.82rem;
+  font-size: var(--t-small);
   font-weight: 600;
 }
 
@@ -1100,7 +1153,7 @@ tfoot td {
 /* The share page has no body under its rule, so the head carries the whole gap
    itself rather than stacking three of them. */
 .page-head {
-  margin-bottom: calc(var(--step) * 1);
+  margin-bottom: var(--s1);
 }
 
 .view-note {
@@ -1108,8 +1161,8 @@ tfoot td {
   border-left: 3px solid var(--accent);
   border-radius: 0 var(--radius) var(--radius) 0;
   background: var(--accent-soft);
-  padding: calc(var(--step) * 3);
-  font-size: 0.85rem;
+  padding: var(--s3);
+  font-size: var(--t-small);
 }
 
 /*
@@ -1119,7 +1172,7 @@ tfoot td {
  * panel now: the whole width, a border, and a mark that answers the click.
  */
 details.working {
-  margin-top: calc(var(--step) * 4);
+  margin-top: var(--s4);
 }
 
 details.working > summary {
@@ -1128,9 +1181,9 @@ details.working > summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(var(--step) * 3);
+  gap: var(--s3);
   min-height: 52px;
-  padding: calc(var(--step) * 3) calc(var(--step) * 4);
+  padding: var(--s3) var(--s4);
   border: 1px solid var(--rule-strong);
   border-left: 3px solid var(--accent);
   border-radius: 0 var(--radius) var(--radius) 0;
@@ -1160,30 +1213,30 @@ details.working > summary:focus-visible {
 .working__label {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--step) * 0.5);
+  gap: var(--s1);
   min-width: 0;
 }
 
 .working__label strong {
-  font-size: 0.95rem;
+  font-size: var(--t-sub);
 }
 
 .working__label small {
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: var(--t-small);
 }
 
 .working__chevron {
   flex: 0 0 auto;
   font-family: var(--font-figure);
-  font-size: 1.1rem;
+  font-size: var(--t-title);
   line-height: 1;
   color: var(--accent);
   transition: transform 0.15s ease;
 }
 
 details.working[open] > summary {
-  margin-bottom: calc(var(--step) * 4);
+  margin-bottom: var(--s4);
   background: var(--accent-soft);
 }
 
@@ -1200,16 +1253,16 @@ details.working[open] .working__chevron {
 /* Each block of the working, so the tables do not run together. */
 .working__part {
   border-top: 1px solid var(--rule);
-  padding-top: calc(var(--step) * 3);
+  padding-top: var(--s3);
 }
 
 .working__part > .eyebrow {
-  margin-bottom: calc(var(--step) * 2);
+  margin-bottom: var(--s2);
 }
 
 /* What the money was, before it is split: a receipt tape, not a table. */
 .bill {
-  margin: 0 0 calc(var(--step) * 3);
+  margin: 0 0 var(--s3);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
   background: var(--surface-sunk);
@@ -1219,8 +1272,8 @@ details.working[open] .working__chevron {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: calc(var(--step) * 4);
-  padding: calc(var(--step) * 2) calc(var(--step) * 3);
+  gap: var(--s4);
+  padding: var(--s2) var(--s3);
   border-bottom: 1px solid var(--rule);
 }
 
@@ -1235,7 +1288,7 @@ details.working[open] .working__chevron {
 
 .bill__line dt small {
   color: var(--ink-faint);
-  font-size: 0.72rem;
+  font-size: var(--t-small);
 }
 
 .bill__line dd {
@@ -1256,7 +1309,7 @@ details.working[open] .working__chevron {
 
 .settle-row__meta {
   font-family: var(--font-figure);
-  font-size: 0.65rem;
+  font-size: var(--t-small);
   color: var(--ink-faint);
 }
 
@@ -1274,12 +1327,12 @@ details.working[open] .working__chevron {
 .input-prefix__fixed {
   display: flex;
   align-items: center;
-  padding: 0 calc(var(--step) * 2);
+  padding: 0 var(--s2);
   border-right: 1px solid var(--rule);
   background: var(--page);
   color: var(--ink-faint);
   font-family: var(--font-figure);
-  font-size: 0.82rem;
+  font-size: var(--t-small);
   white-space: nowrap;
   user-select: none;
 }
@@ -1301,13 +1354,13 @@ details.working[open] .working__chevron {
 }
 
 .payee {
-  padding: calc(var(--step) * 3);
-  margin-bottom: calc(var(--step) * 3);
+  padding: var(--s3);
+  margin-bottom: var(--s3);
   border: 1px solid var(--rule);
   border-left: 3px solid var(--accent);
   border-radius: 0 var(--radius) var(--radius) 0;
   background: var(--accent-soft);
-  font-size: 0.88rem;
+  font-size: var(--t-small);
   line-height: 1.5;
 }
 
@@ -1359,7 +1412,7 @@ details.working[open] .working__chevron {
   table {
     min-width: 0;
     display: block;
-    font-size: 0.9rem;
+    font-size: var(--t-body);
   }
 
   /* The headers are not gone, they are carried by each cell's data-label. */
@@ -1386,12 +1439,12 @@ details.working[open] .working__chevron {
     border: 1px solid var(--rule-strong);
     border-radius: var(--radius);
     background: var(--surface);
-    padding: calc(var(--step) * 3);
+    padding: var(--s3);
   }
 
   tr + tr,
   tfoot tr {
-    margin-top: calc(var(--step) * 2.5);
+    margin-top: var(--s3);
   }
 
   /* The driver is the one person with a different relationship to the
@@ -1402,8 +1455,8 @@ details.working[open] .working__chevron {
 
   /* The name, at the top of its own block, with the figures under it. */
   td.is-rowhead {
-    padding: 0 0 calc(var(--step) * 2);
-    margin-bottom: calc(var(--step) * 1);
+    padding: 0 0 var(--s2);
+    margin-bottom: var(--s1);
     border-bottom: 1px solid var(--rule-strong);
     font-weight: 600;
     text-align: left;
@@ -1413,8 +1466,8 @@ details.working[open] .working__chevron {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: calc(var(--step) * 3);
-    padding: calc(var(--step) * 1.5) 0;
+    gap: var(--s3);
+    padding: var(--s2) 0;
     border-bottom: 1px dotted var(--rule);
     text-align: right;
   }
@@ -1422,7 +1475,7 @@ details.working[open] .working__chevron {
   td:not(.is-rowhead)::before {
     content: attr(data-label);
     font-family: var(--font-figure);
-    font-size: 0.6rem;
+    font-size: var(--t-micro);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--ink-faint);
@@ -1450,7 +1503,7 @@ details.working[open] .working__chevron {
 
   /* The figure people came for stays the largest thing in the block. */
   td .total {
-    font-size: 1.05rem;
+    font-size: var(--t-figure);
   }
 }
 
@@ -1480,19 +1533,19 @@ details.working[open] .working__chevron {
 
   .toggle {
     min-height: 44px;
-    padding-left: calc(var(--step) * 3);
-    padding-right: calc(var(--step) * 3);
+    padding-left: var(--s3);
+    padding-right: var(--s3);
   }
 
   /* Remove / ↑ / ↓ keep their quiet size but not their quiet hitbox. */
   .button--danger {
     min-width: 44px;
-    padding-left: calc(var(--step) * 2);
-    padding-right: calc(var(--step) * 2);
+    padding-left: var(--s2);
+    padding-right: var(--s2);
   }
 
   details.working > summary {
-    padding: calc(var(--step) * 3);
+    padding: var(--s3);
   }
 
   /* Native drag-and-drop does not exist on touch. The grip would be a
@@ -1507,13 +1560,13 @@ details.working[open] .working__chevron {
 @media (max-width: 560px) {
   /* The strapline under the title, not squeezed into a column beside it. */
   .masthead__inner {
-    gap: calc(var(--step) * 2);
+    gap: var(--s2);
   }
 
   .masthead__mark {
     flex-direction: column;
     align-items: flex-start;
-    gap: calc(var(--step) * 0.5);
+    gap: var(--s1);
   }
 
   /* Five steps over two columns leaves the fifth alone in a half-width
@@ -1529,7 +1582,7 @@ details.working[open] .working__chevron {
    * fields, where they read as belonging to neither. */
   .segment__head {
     flex-wrap: wrap;
-    gap: calc(var(--step) * 1);
+    gap: var(--s1);
   }
 
   /* flex-basis, not width: the basis is what decides the wrap, so the title
@@ -1537,14 +1590,14 @@ details.working[open] .working__chevron {
   .segment__head .button-row {
     flex: 0 0 100%;
     justify-content: flex-end;
-    gap: calc(var(--step) * 1);
+    gap: var(--s1);
   }
 
   /* The two figures in the readout sit one per line rather than
    * clipping to an ellipsis. */
   .readout {
-    padding: calc(var(--step) * 3.5) calc(var(--step) * 4);
-    gap: calc(var(--step) * 3.5);
+    padding: var(--s4) var(--s4);
+    gap: var(--s4);
   }
 
   .settle-row__amount {
@@ -1556,15 +1609,15 @@ details.working[open] .working__chevron {
 @supports (padding: max(0px)) {
   .shell,
   .masthead__inner {
-    padding-left: max(calc(var(--step) * 5), env(safe-area-inset-left));
-    padding-right: max(calc(var(--step) * 5), env(safe-area-inset-right));
+    padding-left: max(var(--s5), env(safe-area-inset-left));
+    padding-right: max(var(--s5), env(safe-area-inset-right));
   }
 
   @media (max-width: 560px) {
     .shell,
     .masthead__inner {
-      padding-left: max(calc(var(--step) * 3.5), env(safe-area-inset-left));
-      padding-right: max(calc(var(--step) * 3.5), env(safe-area-inset-right));
+      padding-left: max(var(--s4), env(safe-area-inset-left));
+      padding-right: max(var(--s4), env(safe-area-inset-right));
     }
   }
 }

@@ -130,7 +130,7 @@ async function copy() {
         </div>
 
         <div class="stack stack--tight">
-          <p class="eyebrow">Tolls, parking and the like</p>
+          <p class="eyebrow">Extras</p>
           <div v-for="cost in trip.overheadCosts" :key="cost.id" class="overhead">
             <div class="entry-row">
               <input v-model="cost.label" class="entry-row__label" aria-label="What it was for" />
@@ -179,12 +179,12 @@ async function copy() {
             <tr>
               <th>Person</th>
               <th class="is-figure">Fuel</th>
-              <th v-if="result.maintenanceTotal > 0" class="is-figure">Upkeep</th>
-              <th class="is-figure">Other</th>
-              <th class="is-figure">Exact</th>
-              <th v-if="sharedUpFront" class="is-figure">Paid</th>
-              <th class="is-figure">{{ sharedUpFront ? 'Share' : 'Owes' }}</th>
-              <th v-if="sharedUpFront" class="is-figure">Net</th>
+              <th v-if="result.maintenanceTotal > 0" class="is-figure">Car</th>
+              <th class="is-figure">Extras</th>
+              <th class="is-figure">Their share</th>
+              <th v-if="sharedUpFront" class="is-figure">Already paid</th>
+              <th class="is-figure">To pay</th>
+              <th v-if="sharedUpFront" class="is-figure">Balance</th>
             </tr>
           </thead>
           <tbody>
@@ -199,26 +199,26 @@ async function copy() {
                   <small>
                     {{ person.isDriver ? 'driver · ' : '' }}{{ shareOf(person) }} over
                     {{ person.segmentIds.length }}
-                    {{ person.segmentIds.length === 1 ? 'part' : 'parts' }}
+                    {{ person.segmentIds.length === 1 ? 'leg' : 'legs' }}
                   </small>
                 </span>
               </td>
               <td class="is-figure" data-label="Fuel">{{ exact(person.fuelShare) }}</td>
-              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Upkeep">
+              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Car">
                 {{ exact(person.maintenanceShare) }}
               </td>
-              <td class="is-figure" data-label="Other">{{ exact(person.overheadShare) }}</td>
-              <td class="is-figure" data-label="Exact">{{ exact(person.exactTotal) }}</td>
-              <td v-if="sharedUpFront" class="is-figure" data-label="Paid">
+              <td class="is-figure" data-label="Extras">{{ exact(person.overheadShare) }}</td>
+              <td class="is-figure" data-label="Their share">{{ exact(person.exactTotal) }}</td>
+              <td v-if="sharedUpFront" class="is-figure" data-label="Already paid">
                 {{ exact(person.fronted) }}
               </td>
-              <td class="is-figure" :data-label="sharedUpFront ? 'Share' : 'Owes'">
+              <td class="is-figure" data-label="To pay">
                 <span class="total">{{ money(person.payable) }}</span>
               </td>
-              <td v-if="sharedUpFront" class="is-figure" data-label="Net">
+              <td v-if="sharedUpFront" class="is-figure" data-label="Balance">
                 <span class="cell-name">
                   <strong>{{ money(Math.abs(person.owes)) }}</strong>
-                  <small>{{ person.owes < 0 ? 'owed back' : person.owes > 0 ? 'to pay' : 'settled' }}</small>
+                  <small>{{ person.owes < 0 ? 'gets back' : person.owes > 0 ? 'sends' : 'settled' }}</small>
                 </span>
               </td>
             </tr>
@@ -229,21 +229,17 @@ async function copy() {
               <td class="is-figure" data-label="Fuel">{{ exact(result.fuelTotal) }}</td>
               <!-- The head grows this column when upkeep is charged, so the
                    totals row has to grow it too or every figure below shifts. -->
-              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Upkeep">
+              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Car">
                 {{ exact(result.maintenanceTotal) }}
               </td>
-              <td class="is-figure" data-label="Other">{{ exact(result.overheadTotal) }}</td>
-              <td class="is-figure" data-label="Exact">{{ exact(result.totalExact) }}</td>
-              <td v-if="sharedUpFront" class="is-figure" data-label="Paid">
+              <td class="is-figure" data-label="Extras">{{ exact(result.overheadTotal) }}</td>
+              <td class="is-figure" data-label="Their share">{{ exact(result.totalExact) }}</td>
+              <td v-if="sharedUpFront" class="is-figure" data-label="Already paid">
                 {{ exact(result.frontedTotal) }}
               </td>
               <!-- Nothing to total under Net: the nets are a position, not a
                    pot, and an empty cell is an empty labelled line on a phone. -->
-              <td
-                class="is-figure"
-                :colspan="sharedUpFront ? 2 : 1"
-                :data-label="sharedUpFront ? 'Share' : 'Owes'"
-              >
+              <td class="is-figure" :colspan="sharedUpFront ? 2 : 1" data-label="To pay">
                 {{ money(result.totalPayable) }}
               </td>
             </tr>
@@ -264,8 +260,8 @@ async function copy() {
         <table>
           <thead>
             <tr>
-              <th>Part</th>
-              <th>Basis</th>
+              <th>Leg</th>
+              <th>What it's split on</th>
               <th class="is-figure">Fuel</th>
               <th class="is-figure">People</th>
               <th class="is-figure">Cost</th>
@@ -280,7 +276,7 @@ async function copy() {
                   <small>{{ segment.kind === 'idle' ? 'idling' : 'drive' }}</small>
                 </span>
               </td>
-              <td class="is-figure" data-label="Basis">{{ basisFor(segment.segmentId) }}</td>
+              <td class="is-figure" data-label="What it's split on">{{ basisFor(segment.segmentId) }}</td>
               <td class="is-figure" data-label="Fuel">
                 {{ formatBasis(trip, segment.energy, segment.distanceKm) }}
               </td>

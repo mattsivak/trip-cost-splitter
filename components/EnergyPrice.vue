@@ -107,7 +107,7 @@ async function changeEnergyKind(value: string) {
         <input v-model.number="ratePerKmMajor" type="number" inputmode="decimal" min="0" step="0.1" />
       </label>
       <label class="field">
-        <span>{{ trip.currency }} per km, upkeep</span>
+        <span>{{ trip.currency }} per km, car costs</span>
         <input v-model.number="maintenanceMajor" type="number" inputmode="decimal" min="0" step="0.1" />
       </label>
     </div>
@@ -131,14 +131,14 @@ async function changeEnergyKind(value: string) {
       </label>
 
       <label class="field">
-        <span>{{ trip.currency }} per km, upkeep</span>
+        <span>{{ trip.currency }} per km, car costs</span>
         <input v-model.number="maintenanceMajor" type="number" inputmode="decimal" min="0" step="0.1" />
       </label>
     </div>
 
     <p v-if="perKm" class="hint">
-      Charged by the kilometre, so no fuel is counted at all. Upkeep is wear on the car — tyres, servicing,
-      the thing itself. Leave it at zero to charge only for the driving.
+      Charged by the kilometre, so no fuel is counted at all. Car costs are the wear — tyres, servicing, the
+      thing itself. Leave it at zero to charge only for the driving.
     </p>
     <p v-else-if="trip.pricing.mode !== 'fixed-price'" class="hint">
       Priced from the receipts, so there is no price to set. Change that in step 4.

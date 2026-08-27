@@ -91,7 +91,7 @@ const outstanding = computed(() =>
           <strong>{{ person.name }}</strong>
           <small class="settle-row__meta">
             {{ formatBasis(trip, person.energy, person.distanceKm) }} over {{ person.segmentIds.length }}
-            {{ person.segmentIds.length === 1 ? 'part' : 'parts' }}
+            {{ person.segmentIds.length === 1 ? 'leg' : 'legs' }}
           </small>
         </div>
 
@@ -142,13 +142,13 @@ const outstanding = computed(() =>
     -->
     <div v-if="owedBack.length" class="settle-back">
       <p class="hint">
-        <strong>{{ driver?.name ?? 'The driver' }} sends back</strong> what these people laid out over their
-        own share:
+        <strong>{{ driver?.name ?? 'The driver' }} sends back</strong> what these people already paid over
+        their own share:
       </p>
       <div v-for="person in owedBack" :key="person.personId" class="settle-row">
         <div class="settle-row__who">
           <strong>{{ person.name }}</strong>
-          <small class="settle-row__meta">paid {{ money(person.fronted) }} up front</small>
+          <small class="settle-row__meta">already paid {{ money(person.fronted) }}</small>
         </div>
         <span class="settle-row__amount">{{ money(-person.owes) }}</span>
       </div>

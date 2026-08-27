@@ -75,8 +75,8 @@ function when(iso: string): string {
           <p class="eyebrow">Your trips</p>
           <h1>Work out who owes what for the fuel.</h1>
           <p class="section__lede">
-            Lay out the route, say who was in the car for each stretch, and the app splits the fuel by the
-            litres each person was actually there for. Everything stays in this browser.
+            Lay out the route, say who was in the car for each leg, and the app splits the fuel by the litres
+            each person was actually there for. Everything stays in this browser.
           </p>
         </div>
         <div v-if="trips.length" class="button-row">
@@ -113,7 +113,7 @@ function when(iso: string): string {
           <NuxtLink :to="`/trip/${trip.id}`" class="trip-row__link">
             <strong>{{ trip.title }}</strong>
             <span class="trip-row__meta">
-              {{ trip.peopleCount }} people · {{ trip.segmentCount }} parts · edited
+              {{ trip.peopleCount }} people · {{ trip.segmentCount }} legs · edited
               {{ when(trip.updatedAt) }}
             </span>
           </NuxtLink>

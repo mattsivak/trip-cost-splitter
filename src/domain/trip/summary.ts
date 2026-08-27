@@ -39,17 +39,19 @@ export function formatTripSummary(trip: Trip, result: TripResult): string {
   ]
 
   if (result.maintenanceTotal > 0) {
-    lines.push(`Of which ${formatMoney(result.maintenanceTotal, trip.currency)} is wear and tear on the car.`)
+    lines.push(`Of which ${formatMoney(result.maintenanceTotal, trip.currency)} is car costs.`)
   }
 
   if (result.overheadTotal > 0) {
-    lines.push(`Of which ${formatMoney(result.overheadTotal, trip.currency)} is tolls, parking and the like.`)
+    lines.push(
+      `Of which ${formatMoney(result.overheadTotal, trip.currency)} is extras — tolls, parking and the like.`,
+    )
   }
 
   if (sharedUpFront) {
     lines.push(
       payers
-        .map((person) => `${person.name} put in ${formatMoney(person.fronted, trip.currency)}`)
+        .map((person) => `${person.name} already paid ${formatMoney(person.fronted, trip.currency)}`)
         .join(', ') + '.',
     )
   } else if (driver) {

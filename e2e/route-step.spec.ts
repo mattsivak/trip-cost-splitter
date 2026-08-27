@@ -94,7 +94,7 @@ test('an idle stop is added after the drive it belongs to, not at the end', asyn
   await page
     .locator('article.segment')
     .first()
-    .getByRole('button', { name: 'Add an idle stop after this' })
+    .getByRole('button', { name: 'Add a waiting stop after this' })
     .click()
 
   await expect(partNames(page).nth(1)).toHaveText('Waiting at Olomouc')

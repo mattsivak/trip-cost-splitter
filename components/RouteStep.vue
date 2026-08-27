@@ -65,7 +65,7 @@ async function lookUpRoute() {
   const provider = plan.provider === 'mapy' ? 'Mapy.com' : 'OpenStreetMap'
   const kept =
     idleStops > 0
-      ? ` Your ${idleStops === 1 ? 'idle stop stays' : 'idle stops stay'} where they happened.`
+      ? ` Your ${idleStops === 1 ? 'waiting stop stays' : 'waiting stops stay'} where they happened.`
       : ''
   lookupNote.value = `Found ${plan.legs.length} drives via ${provider}. Every distance below is editable.${kept}`
 }
@@ -169,7 +169,7 @@ function segmentBasis(segment: Trip['segments'][number]): string {
           {{ routing.busy.value ? 'Looking up…' : 'Look up the route' }}
         </button>
         <button type="button" class="button--quiet" @click="addDrive">Add a drive</button>
-        <button type="button" class="button--quiet" @click="addIdleStop()">Add an idle stop</button>
+        <button type="button" class="button--quiet" @click="addIdleStop()">Add a waiting stop</button>
       </div>
 
       <p v-if="routing.error.value" class="notice" style="margin-top: 12px">
@@ -181,12 +181,12 @@ function segmentBasis(segment: Trip['segments'][number]): string {
     <section class="section">
       <div class="section__head">
         <div>
-          <p class="eyebrow">{{ trip.segments.length }} parts</p>
-          <h2>The route, part by part</h2>
+          <p class="eyebrow">{{ trip.segments.length }} legs</p>
+          <h2>The route, leg by leg</h2>
           <p class="section__lede">
             <!-- The handle only exists where dragging does; on touch the arrows are the whole story. -->
-            <span class="only-fine">Drag a part by its handle to reorder it, or use the arrows.</span>
-            <span class="only-coarse">Use the arrows to reorder a part.</span>
+            <span class="only-fine">Drag a leg by its handle to reorder it, or use the arrows.</span>
+            <span class="only-coarse">Use the arrows to reorder a leg.</span>
           </p>
         </div>
       </div>
@@ -217,7 +217,7 @@ function segmentBasis(segment: Trip['segments'][number]): string {
             draggable="true"
             role="button"
             tabindex="-1"
-            :aria-label="`Drag to reorder ${segment.label || 'this part'}`"
+            :aria-label="`Drag to reorder ${segment.label || 'this leg'}`"
             @dragstart="onDragStart(index, $event)"
             @dragend="endDrag"
           >
@@ -242,7 +242,7 @@ function segmentBasis(segment: Trip['segments'][number]): string {
               type="button"
               class="button--danger"
               :aria-disabled="index === 0"
-              :aria-label="`Move ${segment.label || 'this part'} earlier`"
+              :aria-label="`Move ${segment.label || 'this leg'} earlier`"
               @click="index === 0 ? null : move(index, -1)"
             >
               ↑
@@ -251,7 +251,7 @@ function segmentBasis(segment: Trip['segments'][number]): string {
               type="button"
               class="button--danger"
               :aria-disabled="index === trip.segments.length - 1"
-              :aria-label="`Move ${segment.label || 'this part'} later`"
+              :aria-label="`Move ${segment.label || 'this leg'} later`"
               @click="index === trip.segments.length - 1 ? null : move(index, 1)"
             >
               ↓
@@ -314,7 +314,7 @@ function segmentBasis(segment: Trip['segments'][number]): string {
 
         <div v-if="segment.kind === 'drive'" class="button-row">
           <button type="button" class="button--quiet" @click="addIdleStop(segment.to, index)">
-            Add an idle stop after this
+            Add a waiting stop after this
           </button>
         </div>
       </article>

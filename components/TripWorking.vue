@@ -126,12 +126,12 @@ function whoWasOn(occupantIds: readonly string[]): string {
         </div>
         <div v-if="result.maintenanceTotal > 0" class="bill__line">
           <dt>
-            Wear and tear<small>{{ formatKm(result.totalDistanceKm) }} on the car</small>
+            Car costs<small>{{ formatKm(result.totalDistanceKm) }} on the car</small>
           </dt>
           <dd>{{ exact(result.maintenanceTotal) }}</dd>
         </div>
         <div v-if="result.overheadTotal > 0" class="bill__line">
-          <dt>Tolls, parking and the like<small>split evenly between everyone</small></dt>
+          <dt>Extras<small>tolls, parking and the like</small></dt>
           <dd>{{ exact(result.overheadTotal) }}</dd>
         </div>
         <div v-if="billHasParts" class="bill__line bill__line--total">
@@ -147,9 +147,9 @@ function whoWasOn(occupantIds: readonly string[]): string {
     <section
       v-if="trip.receipts.length"
       class="working__part"
-      :aria-label="sharedUpFront ? 'What was paid up front' : 'What the driver paid'"
+      :aria-label="sharedUpFront ? 'What was already paid' : 'What the driver paid'"
     >
-      <h3 class="eyebrow">{{ sharedUpFront ? 'What was paid up front' : 'What the driver paid' }}</h3>
+      <h3 class="eyebrow">{{ sharedUpFront ? 'What was already paid' : 'What the driver paid' }}</h3>
 
       <div class="table-wrap">
         <table>
@@ -165,7 +165,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
               <td class="is-rowhead">
                 <span class="cell-name">
                   <strong>{{ receipt.label || 'Fuel' }}</strong>
-                  <small v-if="paidByName(receipt)">{{ paidByName(receipt) }} paid</small>
+                  <small v-if="paidByName(receipt)">{{ paidByName(receipt) }} paid it</small>
                 </span>
               </td>
               <td v-if="anyReceiptDated" data-label="Date">{{ dayOf(receipt.date) }}</td>
@@ -192,8 +192,8 @@ function whoWasOn(occupantIds: readonly string[]): string {
       </div>
     </section>
 
-    <section v-if="trip.overheadCosts.length" class="working__part" aria-label="Tolls and other costs">
-      <h3 class="eyebrow">Tolls and other costs</h3>
+    <section v-if="trip.overheadCosts.length" class="working__part" aria-label="Extras">
+      <h3 class="eyebrow">Extras</h3>
 
       <div class="table-wrap">
         <table>
@@ -209,7 +209,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
                 <span class="cell-name">
                   <strong>{{ cost.label || 'Cost' }}</strong>
                   <small v-if="chargedTo(cost)">{{ chargedTo(cost) }}</small>
-                  <small v-if="paidByName(cost)">{{ paidByName(cost) }} paid</small>
+                  <small v-if="paidByName(cost)">{{ paidByName(cost) }} paid it</small>
                 </span>
               </td>
               <td class="is-figure" data-label="Amount">
@@ -237,12 +237,12 @@ function whoWasOn(occupantIds: readonly string[]): string {
               <th>Person</th>
               <th class="is-figure">Used</th>
               <th v-if="billHasParts" class="is-figure">{{ drivingLabel }}</th>
-              <th v-if="result.maintenanceTotal > 0" class="is-figure">Upkeep</th>
-              <th v-if="result.overheadTotal > 0" class="is-figure">Other</th>
-              <th class="is-figure">Exact</th>
-              <th v-if="sharedUpFront" class="is-figure">Paid</th>
-              <th class="is-figure">{{ sharedUpFront ? 'Share' : 'Rounded' }}</th>
-              <th v-if="sharedUpFront" class="is-figure">Net</th>
+              <th v-if="result.maintenanceTotal > 0" class="is-figure">Car</th>
+              <th v-if="result.overheadTotal > 0" class="is-figure">Extras</th>
+              <th class="is-figure">Their share</th>
+              <th v-if="sharedUpFront" class="is-figure">Already paid</th>
+              <th class="is-figure">To pay</th>
+              <th v-if="sharedUpFront" class="is-figure">Balance</th>
             </tr>
           </thead>
           <tbody>
@@ -258,8 +258,8 @@ function whoWasOn(occupantIds: readonly string[]): string {
                     person.isDriver
                       ? sharedUpFront
                         ? 'drove, and collects'
-                        : 'drove, and paid up front'
-                      : `${person.segmentIds.length} ${person.segmentIds.length === 1 ? 'part' : 'parts'}`
+                        : 'drove, and already paid'
+                      : `${person.segmentIds.length} ${person.segmentIds.length === 1 ? 'leg' : 'legs'}`
                   }}</small>
                 </span>
               </td>
@@ -269,21 +269,23 @@ function whoWasOn(occupantIds: readonly string[]): string {
               <td v-if="billHasParts" class="is-figure" :data-label="drivingLabel">
                 {{ exact(person.fuelShare) }}
               </td>
-              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Upkeep">
+              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Car">
                 {{ exact(person.maintenanceShare) }}
               </td>
-              <td v-if="result.overheadTotal > 0" class="is-figure" data-label="Other">
+              <td v-if="result.overheadTotal > 0" class="is-figure" data-label="Extras">
                 {{ exact(person.overheadShare) }}
               </td>
-              <td class="is-figure" data-label="Exact">{{ exact(person.exactTotal) }}</td>
-              <td v-if="sharedUpFront" class="is-figure" data-label="Paid">{{ exact(person.fronted) }}</td>
-              <td class="is-figure" :data-label="sharedUpFront ? 'Share' : 'Rounded'">
+              <td class="is-figure" data-label="Their share">{{ exact(person.exactTotal) }}</td>
+              <td v-if="sharedUpFront" class="is-figure" data-label="Already paid">
+                {{ exact(person.fronted) }}
+              </td>
+              <td class="is-figure" data-label="To pay">
                 {{ money(person.payable) }}
               </td>
-              <td v-if="sharedUpFront" class="is-figure" data-label="Net">
+              <td v-if="sharedUpFront" class="is-figure" data-label="Balance">
                 <span class="cell-name">
                   <strong>{{ money(Math.abs(person.owes)) }}</strong>
-                  <small>{{ person.owes < 0 ? 'owed back' : person.owes > 0 ? 'to pay' : 'settled' }}</small>
+                  <small>{{ person.owes < 0 ? 'gets back' : person.owes > 0 ? 'sends' : 'settled' }}</small>
                 </span>
               </td>
             </tr>
@@ -292,14 +294,14 @@ function whoWasOn(occupantIds: readonly string[]): string {
       </div>
     </section>
 
-    <section class="working__part" aria-label="Part by part">
-      <h3 class="eyebrow">Part by part</h3>
+    <section class="working__part" aria-label="Leg by leg">
+      <h3 class="eyebrow">Leg by leg</h3>
 
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Part</th>
+              <th>Leg</th>
               <th class="is-figure">Distance</th>
               <th class="is-figure">Used</th>
               <th>Who was aboard</th>

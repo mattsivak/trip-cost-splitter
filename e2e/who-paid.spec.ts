@@ -55,12 +55,12 @@ test("a receipt can be put in somebody else's name", async ({ page }) => {
   const receipt = await tripPricedFromReceipts(page)
 
   // Unmarked, it is the driver's money, exactly as it always was.
-  await expect(cellFor(page, 'Matthew', 'Paid')).toHaveCount(0)
+  await expect(cellFor(page, 'Matthew', 'Already paid')).toHaveCount(0)
 
   await receipt.getByLabel('Paid by').selectOption({ label: 'Janca' })
 
-  await expect(cellFor(page, 'Janca', 'Paid')).toHaveText('400,00 Kč')
-  await expect(cellFor(page, 'Matthew', 'Paid')).toHaveText('0,00 Kč')
+  await expect(cellFor(page, 'Janca', 'Already paid')).toHaveText('400,00 Kč')
+  await expect(cellFor(page, 'Matthew', 'Already paid')).toHaveText('0,00 Kč')
 })
 
 test('somebody who laid out more than their share is owed the difference', async ({ page }) => {
@@ -69,8 +69,8 @@ test('somebody who laid out more than their share is owed the difference', async
 
   // Janca owes 200 of the tank and paid 400, so 200 comes back to her.
   // Whole units, because a net position is what somebody actually transfers.
-  await expect(cellFor(page, 'Janca', 'Net')).toContainText('200 Kč')
-  await expect(cellFor(page, 'Janca', 'Net')).toContainText('owed')
+  await expect(cellFor(page, 'Janca', 'Balance')).toContainText('200 Kč')
+  await expect(cellFor(page, 'Janca', 'Balance')).toContainText('gets back')
 })
 
 test('the person who is owed money is not asked to pay any', async ({ page }) => {
@@ -100,7 +100,7 @@ test('the shared page says whose money each receipt was', async ({ page }) => {
   await page.goto(await page.evaluate(() => navigator.clipboard.readText()))
 
   await page.locator('summary', { hasText: /worked out/i }).click()
-  const receipts = page.getByRole('region', { name: 'What was paid up front' })
+  const receipts = page.getByRole('region', { name: 'What was already paid' })
   await expect(receipts.getByRole('row', { name: /The tank/ })).toContainText('Janca')
 })
 
@@ -129,7 +129,7 @@ test('the totals row lines up with the columns it totals', async ({ page }) => {
   await receipt.getByLabel('Paid by').selectOption({ label: 'Janca' })
 
   await page.getByRole('button', { name: 'Route' }).click()
-  await page.getByLabel('Kč per km, upkeep').fill('2')
+  await page.getByLabel('Kč per km, car costs').fill('2')
   await page.getByRole('button', { name: 'Split' }).click()
 
   const split = page.getByRole('table').first()

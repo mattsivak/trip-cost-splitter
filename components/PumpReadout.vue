@@ -19,7 +19,7 @@ const perKm = computed(() => props.trip.pricing.mode === 'per-km')
  */
 const rateNote = computed(() => {
   const upkeep = props.trip.maintenancePerKm
-  return upkeep > 0 ? `plus ${exact(upkeep)}/km upkeep` : 'set by hand'
+  return upkeep > 0 ? `plus ${exact(upkeep)}/km car costs` : 'set by hand'
 })
 </script>
 

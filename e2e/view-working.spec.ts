@@ -128,7 +128,7 @@ async function openLinkForTripWithExtras(page: Page) {
 
   await page.getByRole('button', { name: 'Route' }).click()
   await page.getByLabel('Kč per L').fill('40')
-  await page.getByLabel('Kč per km, upkeep').fill('2')
+  await page.getByLabel('Kč per km, car costs').fill('2')
   await page.getByRole('button', { name: 'Add a drive' }).click()
   await page.getByLabel('Distance km').fill('100')
 
@@ -160,19 +160,19 @@ test('upkeep and tolls are named on the bill, not folded into the fuel', async (
 
   const bill = page.getByRole('region', { name: 'The bill' })
   // 100 km at 2 Kč, and the toll as entered.
-  await expect(bill).toContainText('Wear and tear')
+  await expect(bill).toContainText('Car costs')
   await expect(bill).toContainText('200,00 Kč')
-  await expect(bill).toContainText('Tolls, parking and the like')
+  await expect(bill).toContainText('Extras')
   await expect(bill).toContainText('300,00 Kč')
   await expect(bill).toContainText('Total')
 
-  const costs = page.getByRole('region', { name: 'Tolls and other costs' })
+  const costs = page.getByRole('region', { name: 'Extras' })
   await expect(costs.getByRole('cell', { name: 'Motorway toll' })).toBeVisible()
 
   // And each person's amount is shown split the same three ways.
   const share = page.getByRole('region', { name: 'Your share' })
-  await expect(share.getByRole('columnheader', { name: 'Upkeep' })).toBeVisible()
-  await expect(share.getByRole('columnheader', { name: 'Other' })).toBeVisible()
+  await expect(share.getByRole('columnheader', { name: 'Car' })).toBeVisible()
+  await expect(share.getByRole('columnheader', { name: 'Extras' })).toBeVisible()
   await expect(share.getByRole('row', { name: /Janca/ })).toContainText('150,00 Kč')
 })
 

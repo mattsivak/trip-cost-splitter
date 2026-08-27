@@ -52,7 +52,7 @@ const costBlock = (page: Page, label: string) => page.getByRole('region', { name
 
 /** What one person is charged for non-fuel costs, in the step's own table. */
 const otherCell = (page: Page, name: string): Locator =>
-  page.getByRole('row', { name: new RegExp(name) }).locator('td[data-label="Other"]')
+  page.getByRole('row', { name: new RegExp(name) }).locator('td[data-label="Extras"]')
 
 test('a cost can be charged to only the people it was for', async ({ page }) => {
   await tripWithThree(page)
@@ -125,7 +125,7 @@ test('the shared page says who a restricted cost was charged to', async ({ page 
   await page.goto(await page.evaluate(() => navigator.clipboard.readText()))
 
   await page.locator('summary', { hasText: /worked out/i }).click()
-  const costs = page.getByRole('region', { name: 'Tolls and other costs' })
+  const costs = page.getByRole('region', { name: 'Extras' })
   await expect(costs.getByRole('row', { name: /Austrian vignette/ })).toContainText('Matthew and Janca')
 })
 

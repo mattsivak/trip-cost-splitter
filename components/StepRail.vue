@@ -10,7 +10,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: number] }>()
 const steps = [
   { name: 'Route', hint: 'Where the car went' },
   { name: 'People', hint: 'Who came along' },
-  { name: 'Assign', hint: 'Who was in for each stretch' },
+  { name: 'Assign', hint: 'Who was in the car for each leg' },
   { name: 'Split', hint: 'What everyone owes' },
   { name: 'Collect', hint: 'Getting it back' },
 ]

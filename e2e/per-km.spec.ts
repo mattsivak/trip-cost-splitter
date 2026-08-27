@@ -53,16 +53,16 @@ async function priceByKm(page: Page, rate: string, upkeep: string) {
   await page.getByRole('button', { name: 'Split' }).click()
   await page.getByText('Set a price per km').click()
   await page.getByLabel('Kč per km', { exact: true }).fill(rate)
-  await page.getByLabel('Kč per km, upkeep').fill(upkeep)
+  await page.getByLabel('Kč per km, car costs').fill(upkeep)
 }
 
-test('the driving is charged at the stated rate, with upkeep on top', async ({ page }) => {
+test('the driving is charged at the stated rate, with car costs on top', async ({ page }) => {
   await startTrip(page)
   await priceByKm(page, '4', '2')
 
   const readout = readoutOf(page)
   await expect(readout).toContainText('4,00 Kč/km')
-  await expect(readout).toContainText('plus 2,00 Kč/km upkeep')
+  await expect(readout).toContainText('plus 2,00 Kč/km car costs')
   // 100 km at 4 Kč, plus 100 km of wear at 2 Kč.
   await expect(readout).toContainText('600 Kč')
 })
@@ -81,21 +81,21 @@ test('no fuel is counted, so no litre figure is quoted anywhere', async ({ page 
   await expect(page.getByLabel('Consumption L/100 km')).toHaveCount(0)
 })
 
-test('the message for the group chat names the wear and tear separately', async ({ page }) => {
+test('the message for the group chat names the car costs separately', async ({ page }) => {
   await startTrip(page)
   await priceByKm(page, '4', '2')
 
   await expect(page.getByText('100 km · 600 Kč total')).toBeVisible()
-  await expect(page.getByText('Of which 200 Kč is wear and tear on the car.')).toBeVisible()
+  await expect(page.getByText('Of which 200 Kč is car costs.')).toBeVisible()
 })
 
-test('upkeep is charged on the consumption basis too', async ({ page }) => {
+test('car costs are charged on the consumption basis too', async ({ page }) => {
   await startTrip(page)
 
   await page.getByRole('button', { name: 'Route' }).click()
   await page.getByLabel('Kč per L').fill('40')
   await page.getByLabel('Consumption L/100 km').fill('10')
-  await page.getByLabel('Kč per km, upkeep').fill('2')
+  await page.getByLabel('Kč per km, car costs').fill('2')
 
   const readout = readoutOf(page)
   // 10 L at 40 Kč, plus 100 km of wear at 2 Kč.
@@ -103,21 +103,21 @@ test('upkeep is charged on the consumption basis too', async ({ page }) => {
   await expect(readout).toContainText('10,0 L')
 })
 
-test('an upkeep column appears in the split only once some is charged', async ({ page }) => {
+test('a car column appears in the split only once some is charged', async ({ page }) => {
   await startTrip(page)
   await page.getByRole('button', { name: 'Split' }).click()
-  await expect(page.getByRole('columnheader', { name: 'Upkeep' })).toHaveCount(0)
+  await expect(page.getByRole('columnheader', { name: 'Car' })).toHaveCount(0)
 
-  await page.getByLabel('Kč per km, upkeep').fill('2')
-  await expect(page.getByRole('columnheader', { name: 'Upkeep' })).toBeVisible()
+  await page.getByLabel('Kč per km, car costs').fill('2')
+  await expect(page.getByRole('columnheader', { name: 'Car' })).toBeVisible()
 })
 
-test('an idle stop is priced as money when the trip is priced per km', async ({ page }) => {
+test('a waiting stop is priced as money when the trip is priced per km', async ({ page }) => {
   await startTrip(page)
   await priceByKm(page, '4', '0')
 
   await page.getByRole('button', { name: 'Route' }).click()
-  await page.getByRole('button', { name: 'Add an idle stop after this' }).click()
+  await page.getByRole('button', { name: 'Add a waiting stop after this' }).click()
   await page.getByLabel('Kč it cost').fill('120')
 
   await page.getByRole('button', { name: 'Assign' }).click()

@@ -158,6 +158,21 @@ The shared payment page names whose money each receipt was, and gives each
 person their own paid-and-net line in the working. Somebody who bought fuel on
 a trip should be able to open the link and see it counted.
 
+## The words, settled once
+
+One word per thing, and a heading that never changes its text with the state of
+the data. A piece of the journey is a **leg** — it was a stretch, a part, a
+drive and a segment, two of those in adjacent sentences. The per-kilometre
+charge for the car is **car costs**, not upkeep in one table and wear and tear
+in the next. Tolls and parking are **extras**. Money somebody put down is
+**already paid**, not fronted here and laid out there.
+
+In the tables: **their share** is what a person's use of the car came to,
+**already paid** is what they put down, **to pay** is the rounded figure, and
+**balance** is where that leaves them — with the verb in the cell, _sends_ or
+_gets back_, rather than a legend somewhere else. Two of those headings used to
+swap meaning depending on whether anyone but the driver had paid for anything.
+
 ## Costs that are not everybody's
 
 Tolls, parking, a vignette, a ferry: the app calls these overheads, and by

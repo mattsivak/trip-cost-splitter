@@ -68,12 +68,12 @@ describe('formatTripSummary', () => {
     expect(text).not.toContain('L ·')
   })
 
-  it('calls out wear and tear only when some is being charged', () => {
+  it('calls out car costs only when some are being charged', () => {
     expect(summary).not.toContain('wear and tear')
 
     const withUpkeep = makeTrip({ ...trip, maintenancePerKm: fromMajor(2) })
     expect(formatTripSummary(withUpkeep, calculateTrip(withUpkeep))).toContain(
-      'Of which 400 Kč is wear and tear on the car.',
+      'Of which 400 Kč is car costs.',
     )
   })
 
@@ -100,9 +100,9 @@ describe('when somebody other than the driver paid for something', () => {
   })
   const summary = formatTripSummary(shared, calculateTrip(shared))
 
-  it('says what each of them put in, not just the driver', () => {
-    expect(summary).toContain('Ann put in 300 Kč')
-    expect(summary).toContain('Bo put in 600 Kč')
+  it('says what each of them already paid, not just the driver', () => {
+    expect(summary).toContain('Ann already paid 300 Kč')
+    expect(summary).toContain('Bo already paid 600 Kč')
   })
 
   it('asks only the people who are actually down to send anything', () => {

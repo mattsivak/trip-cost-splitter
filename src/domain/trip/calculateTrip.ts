@@ -72,7 +72,7 @@ export function calculateTrip(trip: Trip): TripResult {
     warnings.push('There is fuel cost with nobody to charge it to.')
   }
   if (maintenanceTotal !== maintenancePool && maintenancePool !== 0) {
-    warnings.push('There is wear and tear with nobody to charge it to.')
+    warnings.push('There are car costs with nobody to charge them to.')
   }
   if (perKm && ratePerKm(trip) <= 0 && trip.maintenancePerKm <= 0) {
     warnings.push('Set a price per km.')

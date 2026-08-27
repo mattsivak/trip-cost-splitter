@@ -71,10 +71,10 @@ function shareLabels(segment: Segment): Record<PersonId, string> {
     <div class="section__head">
       <div>
         <p class="eyebrow">Step 3</p>
-        <h2>Who was in for each stretch</h2>
+        <h2>Who was in the car for each leg</h2>
         <p class="section__lede">
-          A stretch is split evenly between everyone who was there for it. The bar shows exactly how each part
-          is being cut.
+          A leg is split evenly between everyone who was there for it. The bar shows exactly how each one is
+          being cut.
         </p>
       </div>
     </div>
@@ -93,7 +93,7 @@ function shareLabels(segment: Segment): Record<PersonId, string> {
         <div class="segment__title">
           <h3>{{ segment.label || 'Untitled' }}</h3>
           <span class="segment__meta">
-            {{ segment.kind === 'drive' ? formatKm(segment.distanceKm) : 'idling' }} ·
+            {{ segment.kind === 'drive' ? formatKm(segment.distanceKm) : 'waiting' }} ·
             {{ worthLabel(segment) }} · {{ segment.occupantIds.length }} assigned
           </span>
         </div>
