@@ -85,6 +85,35 @@ function remove(id: string) {
   props.trip.lines = props.trip.lines.filter((line) => line.id !== id)
 }
 
+/**
+ * Dragging a line.
+ *
+ * The list reorders as the cursor passes over it rather than showing a marker
+ * and jumping at the drop: what you see under your hand is what you will get,
+ * and letting go changes nothing more.
+ */
+const draggingId = ref('')
+
+function startDrag(line: TripLine, event: DragEvent) {
+  draggingId.value = line.id
+  event.dataTransfer?.setData('text/plain', line.id)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+function dragOver(index: number) {
+  const from = props.trip.lines.findIndex((line) => line.id === draggingId.value)
+  if (from < 0 || from === index) return
+
+  const next = [...props.trip.lines]
+  const [line] = next.splice(from, 1)
+  if (line) next.splice(index, 0, line)
+  props.trip.lines = next
+}
+
+function endDrag() {
+  draggingId.value = ''
+}
+
 function move(index: number, by: number) {
   const next = [...props.trip.lines]
   const target = index + by
@@ -161,11 +190,34 @@ function setRate(line: DriveLine | StopLine, major: number) {
         v-for="(line, index) in trip.lines"
         :key="line.id"
         class="ledger__line"
-        :class="`ledger__line--${line.kind}`"
+        :class="[`ledger__line--${line.kind}`, { 'is-dragging': draggingId === line.id }]"
         role="group"
         :aria-label="line.label || 'Untitled line'"
+        @dragover.prevent="dragOver(index)"
+        @drop.prevent="endDrag"
       >
         <div class="ledger__row">
+          <!--
+            The handle is the only draggable part, so the inputs beside it keep
+            their own selection and caret behaviour.
+          -->
+          <span
+            class="ledger__grip"
+            draggable="true"
+            aria-hidden="true"
+            @dragstart="startDrag(line, $event)"
+            @dragend="endDrag"
+          >
+            <svg width="10" height="16" viewBox="0 0 10 16" focusable="false">
+              <circle cx="2" cy="3" r="1.4" />
+              <circle cx="8" cy="3" r="1.4" />
+              <circle cx="2" cy="8" r="1.4" />
+              <circle cx="8" cy="8" r="1.4" />
+              <circle cx="2" cy="13" r="1.4" />
+              <circle cx="8" cy="13" r="1.4" />
+            </svg>
+          </span>
+
           <span class="ledger__mark" aria-hidden="true">{{
             line.kind === 'drive' ? '→' : line.kind === 'stop' ? '⏸' : '＋'
           }}</span>
@@ -270,14 +322,18 @@ function setRate(line: DriveLine | StopLine, major: number) {
         </div>
 
         <p v-if="line.kind === 'buy'" class="ledger__note">
-          <label class="toggle toggle--tiny" :class="{ 'is-on': line.funds === 'fuel' }" :title="fuelHint">
-            <input
-              type="checkbox"
-              :checked="line.funds === 'fuel'"
-              @change="line.funds = line.funds === 'fuel' ? 'people' : 'fuel'"
-            />
-            <span>pays for the driving</span>
-          </label>
+          <span class="ledger__tip-wrap">
+            <label class="toggle toggle--tiny" :class="{ 'is-on': line.funds === 'fuel' }">
+              <input
+                type="checkbox"
+                :checked="line.funds === 'fuel'"
+                :aria-describedby="`tip-${line.id}`"
+                @change="line.funds = line.funds === 'fuel' ? 'people' : 'fuel'"
+              />
+              <span>pays for the driving</span>
+            </label>
+            <span :id="`tip-${line.id}`" role="tooltip" class="ledger__tip">{{ fuelHint }}</span>
+          </span>
           <!--
             Fuel money funds the pool the legs are charged against. Priced any
             other way there is no pool to fund, so this money reaches nobody's
@@ -334,6 +390,35 @@ function setRate(line: DriveLine | StopLine, major: number) {
   flex-wrap: wrap;
 }
 
+/* The one draggable thing on the row, so the inputs keep their own behaviour. */
+.ledger__grip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--s1);
+  color: var(--rule-strong);
+  cursor: grab;
+}
+
+.ledger__grip:hover {
+  color: var(--accent);
+}
+
+.ledger__grip svg {
+  fill: currentColor;
+}
+
+.ledger__line.is-dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+
+/* No handle where there is no dragging; the arrows do the job on touch. */
+@media (pointer: coarse) {
+  .ledger__grip {
+    display: none;
+  }
+}
+
 .ledger__mark {
   width: 1.2em;
   color: var(--ink-faint);
@@ -372,6 +457,39 @@ function setRate(line: DriveLine | StopLine, major: number) {
   margin-left: auto;
 }
 
+/*
+ * A real tooltip rather than a `title`: the native one waits a second, hides
+ * on touch, and cannot be reached by keyboard.
+ */
+.ledger__tip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.ledger__tip {
+  position: absolute;
+  bottom: calc(100% + var(--s1));
+  left: 0;
+  z-index: 5;
+  display: none;
+  width: max-content;
+  max-width: 34ch;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 6px 20px -12px rgba(0, 0, 0, 0.6);
+  font-size: var(--t-small);
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.ledger__tip-wrap:hover .ledger__tip,
+.ledger__tip-wrap:focus-within .ledger__tip {
+  display: block;
+}
+
 .ledger__warn {
   color: var(--flag);
 }
@@ -379,8 +497,10 @@ function setRate(line: DriveLine | StopLine, major: number) {
 .ledger__note {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--s2);
-  padding-left: calc(1.2em + var(--s2));
+  margin-top: var(--s1);
+  padding-left: calc(1.2em + var(--s3) + 18px);
   color: var(--ink-faint);
   font-size: var(--t-small);
 }

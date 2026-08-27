@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { addDrive, addPeople, addPurchase, goTo, lineOf, person, startTrip } from './support/trip'
 
 /**
@@ -141,15 +141,6 @@ test('a purchase in another currency asks for the day its rate belongs to', asyn
   await expect(line.getByLabel('Date')).toBeVisible()
 })
 
-test('the fuel toggle says what it means', async ({ page }) => {
-  await startTrip(page)
-  const line = await addPurchase(page, 'The tank', '600')
-
-  await expect(line.locator('label.toggle', { hasText: 'pays for the driving' })).toHaveAttribute(
-    'title',
-    /fuel/i,
-  )
-})
 
 /**
  * Money marked as paying for the driving funds the pool the legs are charged
@@ -166,4 +157,80 @@ test('a purchase that funds the driving says when it is not being divided', asyn
 
   await page.locator('.pricing').getByText('From the receipts').click()
   await expect(line).not.toContainText('not split')
+})
+
+/**
+ * Dragging a line by its handle.
+ *
+ * Two things make this fiddlier than it looks. Playwright only turns on
+ * Chromium's drag interception inside `dragTo`, and without it no dragover is
+ * ever delivered. But `dragTo` also jumps the cursor in one hop, so Chromium
+ * begins the drag over the *target* and the source never moves. So: a
+ * throwaway drag onto itself arms interception, then the moves below start at
+ * the handle and walk to the target.
+ */
+async function dragLine(page: Page, from: number, to: number) {
+  const lines = page.locator('.ledger__line')
+  const handle = lines.nth(from).locator('.ledger__grip')
+
+  await handle.dragTo(handle)
+
+  const source = await handle.boundingBox()
+  const target = await lines.nth(to).boundingBox()
+  if (!source || !target) throw new Error('a line is not on screen to drag')
+
+  const [sx, sy] = [source.x + source.width / 2, source.y + source.height / 2]
+  const [tx, ty] = [target.x + target.width / 2, target.y + target.height / 2]
+
+  await page.mouse.move(sx, sy)
+  await page.mouse.down()
+  await page.mouse.move(sx + 4, sy + 4)
+  await page.mouse.move(tx, ty, { steps: 20 })
+  await page.mouse.move(tx, ty + 1)
+  await page.mouse.up()
+}
+
+test('a line can be dragged into a new place by its handle', async ({ page }) => {
+  await startTrip(page)
+  await addDrive(page, 'A', 'B', '10')
+  await addDrive(page, 'B', 'C', '20')
+  await addPurchase(page, 'Coffee', '120')
+
+  await dragLine(page, 2, 0)
+
+  await expect(page.locator('.ledger__line').first()).toHaveAttribute('aria-label', 'Coffee')
+})
+
+test('the line follows the cursor, so you can see where it will land', async ({ page }) => {
+  await startTrip(page)
+  await addDrive(page, 'A', 'B', '10')
+  await addPurchase(page, 'Coffee', '120')
+
+  const lines = page.locator('.ledger__line')
+  const handle = lines.nth(1).locator('.ledger__grip')
+  await handle.dragTo(handle)
+
+  const source = await handle.boundingBox()
+  const target = await lines.nth(0).boundingBox()
+  await page.mouse.move(source!.x + 5, source!.y + 5)
+  await page.mouse.down()
+  await page.mouse.move(source!.x + 9, source!.y + 9)
+  await page.mouse.move(target!.x + target!.width / 2, target!.y + 4, { steps: 20 })
+  await page.mouse.move(target!.x + target!.width / 2, target!.y + 5)
+
+  // Mid-drag, before the drop: the ledger already shows the new order.
+  await expect(lines.first()).toHaveAttribute('aria-label', 'Coffee')
+  await page.mouse.up()
+})
+
+test('the fuel toggle explains itself on hover', async ({ page }) => {
+  await startTrip(page)
+  const line = await addPurchase(page, 'The tank', '600')
+
+  const tip = line.getByRole('tooltip')
+  await expect(tip).toBeHidden()
+
+  await line.locator('label.toggle', { hasText: 'pays for the driving' }).hover()
+  await expect(tip).toBeVisible()
+  await expect(tip).toContainText(/fuel/i)
 })
