@@ -16,7 +16,7 @@ const route = useRoute()
 const tripId = computed(() => String(route.params.id ?? ''))
 
 const trip = ref<Trip | null>(null)
-const status = ref<'loading' | 'ready' | 'missing'>('loading')
+const status = ref<'loading' | 'ready' | 'missing' | 'unreachable'>('loading')
 const viewKey = ref('')
 const busyPersonId = ref<string | null>(null)
 const failed = ref('')
@@ -25,20 +25,29 @@ const result = computed(() => (trip.value ? calculateTrip(trip.value) : null))
 
 const path = computed(() => `/api/trips/${encodeURIComponent(tripId.value)}`)
 
-onMounted(async () => {
-  viewKey.value = window.location.hash.replace(/^#/, '').trim()
+async function open() {
   if (!viewKey.value) {
     status.value = 'missing'
     return
   }
 
+  status.value = 'loading'
   try {
     const answer = await $fetch<{ trip: Trip }>(path.value as string, { query: { key: viewKey.value } })
     trip.value = answer.trip
     status.value = 'ready'
-  } catch {
-    status.value = 'missing'
+  } catch (error) {
+    // A link that does not open anything is a different thing from a link
+    // nobody could ask about, and only one of them is worth giving up on.
+    const status404 = error as { statusCode?: number; response?: { status?: number } }
+    const gone = status404?.statusCode === 404 || status404?.response?.status === 404
+    status.value = gone ? 'missing' : 'unreachable'
   }
+}
+
+onMounted(() => {
+  viewKey.value = window.location.hash.replace(/^#/, '').trim()
+  void open()
 })
 
 async function togglePaid(personId: string, paid: boolean) {
@@ -64,6 +73,12 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · what you owe` : 'Tr
 
 <template>
   <div v-if="status === 'loading'" class="hint">Opening…</div>
+
+  <div v-else-if="status === 'unreachable'" class="empty">
+    <p>Could not reach this trip.</p>
+    <p class="hint">The link is fine — the connection is the problem. Try again in a moment.</p>
+    <button type="button" @click="open()">Try again</button>
+  </div>
 
   <div v-else-if="status === 'missing' || !trip || !result" class="empty">
     <p>This link does not open anything.</p>
@@ -100,6 +115,17 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · what you owe` : 'Tr
       <p v-if="failed" class="notice" style="margin-top: 12px">
         <span class="notice__mark">!</span><span>{{ failed }}</span>
       </p>
+    </section>
+
+    <!--
+      The calculator can know that the total in front of you is missing money —
+      a receipt in a currency with no rate, fuel with nobody to charge it to.
+      Telling only the person collecting, and not the people being asked to pay,
+      is the wrong way round.
+    -->
+    <section v-if="result.warnings.length" class="section">
+      <p class="eyebrow">Worth knowing</p>
+      <WarningList :warnings="result.warnings" />
     </section>
 
     <!--

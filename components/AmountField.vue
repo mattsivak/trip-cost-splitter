@@ -140,6 +140,7 @@ const dayLabel = computed(() => {
       <input
         :value="amountMajor"
         type="number"
+        inputmode="decimal"
         min="0"
         step="0.01"
         :aria-label="entry.foreign ? `Amount in ${entry.foreign.currency}` : 'Amount'"
@@ -163,6 +164,7 @@ const dayLabel = computed(() => {
         <input
           :value="rate || ''"
           type="number"
+          inputmode="decimal"
           min="0"
           step="0.0001"
           :placeholder="looking ? '…' : '0'"

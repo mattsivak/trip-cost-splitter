@@ -175,3 +175,32 @@ test('upkeep and tolls are named on the bill, not folded into the fuel', async (
   await expect(share.getByRole('columnheader', { name: 'Other' })).toBeVisible()
   await expect(share.getByRole('row', { name: /Janca/ })).toContainText('150,00 Kč')
 })
+
+/**
+ * The calculator can know that money is missing from the total — a receipt in
+ * a currency with no rate, fuel with nobody to charge it to. The owner is told.
+ * The people being asked to pay were told nothing at all.
+ */
+test('a trip that is missing something says so on the page it sends out', async ({ page }) => {
+  await stubPrice(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Open the example trip' }).click()
+  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Split' }).click()
+  await page.getByText('Set a price per L').click()
+  await page.getByLabel('Kč per L').fill('0')
+  await expect(page.getByText(/Set a price per/).first()).toBeVisible()
+
+  await page.getByRole('button', { name: 'Collect' }).click()
+  await page.getByLabel('Your Revolut handle').fill('mattsivak')
+  await page.waitForResponse(
+    (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
+  )
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.getByRole('button', { name: 'Copy the payment link' }).click()
+  await page.goto(await page.evaluate(() => navigator.clipboard.readText()))
+
+  await expect(page.getByRole('heading', { name: 'Volkswagen August trip' })).toBeVisible()
+  await expect(page.getByText(/Set a price per/)).toBeVisible()
+})

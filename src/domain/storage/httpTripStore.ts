@@ -5,6 +5,20 @@ import { summarize, type TripStore, type TripSummary } from './tripStore'
 
 const INDEX_KEY = 'trip-cost-splitter:index'
 
+/**
+ * The server could not be asked — no network, a dead proxy, a 500.
+ *
+ * Emphatically not the same as "no such trip": the index is the only way back
+ * into a trip, so a question that was never answered must never be read as an
+ * answer of "gone".
+ */
+export class TripUnreachableError extends Error {
+  constructor(cause?: unknown) {
+    super('The trip could not be reached.', { cause })
+    this.name = 'TripUnreachableError'
+  }
+}
+
 export interface TripKeys {
   id: string
   viewKey: string
@@ -20,6 +34,9 @@ export interface TripApi {
    * `access` says which key was accepted, and an edit read hands back the view
    * key as well — the holder of the edit key is entitled to it, and needs it to
    * build the group's payment link.
+   *
+   * Resolving to `null` means the server answered and the trip is not there.
+   * Anything that stops it answering at all must throw, not resolve.
    */
   read(id: string, key: string): Promise<{ trip: Trip; access?: TripAccess; viewKey?: string } | null>
   update(id: string, key: string, trip: Trip): Promise<Trip>
@@ -67,6 +84,15 @@ export function createHttpTripStore(
     writeIndex([entry, ...readIndex().filter((existing) => existing.id !== entry.id)])
   }
 
+  /** One read, with "could not ask" kept distinct from "not there". */
+  async function reachFor(id: string, key: string) {
+    try {
+      return await api.read(id, key)
+    } catch (cause) {
+      throw new TripUnreachableError(cause)
+    }
+  }
+
   function forget(id: string): void {
     writeIndex(readIndex().filter((entry) => entry.id !== id))
   }
@@ -87,7 +113,7 @@ export function createHttpTripStore(
      * key never overwrites a working entry.
      */
     async adopt(id: string, editKey: string): Promise<Trip | null> {
-      const answer = await api.read(id, editKey)
+      const answer = await reachFor(id, editKey)
       // A key that only reads is not one to build the wizard on: every save
       // would be refused. Older servers say nothing, and are taken at their word.
       if (!answer || answer.access === 'view') return null
@@ -114,9 +140,11 @@ export function createHttpTripStore(
       const entry = readIndex().find((candidate) => candidate.id === id)
       if (!entry) return null
 
-      const answer = await api.read(id, entry.editKey)
+      const answer = await reachFor(id, entry.editKey)
       if (!answer) {
         // Gone from the server: stop offering a trip that cannot be opened.
+        // Only ever reached when the server actually said so — `reachFor`
+        // throws rather than resolving when it could not ask.
         forget(id)
         return null
       }

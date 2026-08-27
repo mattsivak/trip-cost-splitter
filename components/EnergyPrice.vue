@@ -104,11 +104,11 @@ async function changeEnergyKind(value: string) {
     <div v-if="perKm" class="field-row">
       <label class="field">
         <span>{{ trip.currency }} per km</span>
-        <input v-model.number="ratePerKmMajor" type="number" min="0" step="0.1" />
+        <input v-model.number="ratePerKmMajor" type="number" inputmode="decimal" min="0" step="0.1" />
       </label>
       <label class="field">
         <span>{{ trip.currency }} per km, upkeep</span>
-        <input v-model.number="maintenanceMajor" type="number" min="0" step="0.1" />
+        <input v-model.number="maintenanceMajor" type="number" inputmode="decimal" min="0" step="0.1" />
       </label>
     </div>
 
@@ -127,12 +127,12 @@ async function changeEnergyKind(value: string) {
 
       <label v-if="trip.pricing.mode === 'fixed-price'" class="field">
         <span>{{ trip.currency }} per {{ unit }}</span>
-        <input v-model.number="priceMajor" type="number" min="0" step="0.1" />
+        <input v-model.number="priceMajor" type="number" inputmode="decimal" min="0" step="0.1" />
       </label>
 
       <label class="field">
         <span>{{ trip.currency }} per km, upkeep</span>
-        <input v-model.number="maintenanceMajor" type="number" min="0" step="0.1" />
+        <input v-model.number="maintenanceMajor" type="number" inputmode="decimal" min="0" step="0.1" />
       </label>
     </div>
 

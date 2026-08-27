@@ -111,11 +111,20 @@ const outstanding = computed(() =>
           Pay {{ money(person.owes) }}
         </a>
 
+        <!--
+          Busy, not disabled: disabling the button somebody has just pressed
+          hands their focus back to the document, and a keyboard user ends up at
+          the top of the page not knowing whether it worked.
+        -->
         <button
           type="button"
           class="button--quiet"
-          :disabled="busyPersonId === person.personId"
-          @click="emit('togglePaid', person.personId, !trip.paidAt[person.personId])"
+          :aria-busy="busyPersonId === person.personId"
+          @click="
+            busyPersonId === person.personId
+              ? null
+              : emit('togglePaid', person.personId, !trip.paidAt[person.personId])
+          "
         >
           {{ trip.paidAt[person.personId] ? 'Undo' : 'Mark paid' }}
         </button>

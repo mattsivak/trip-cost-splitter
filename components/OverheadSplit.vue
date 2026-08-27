@@ -153,6 +153,7 @@ function setAmount(personId: PersonId, value: string) {
           <span>{{ person.name }}</span>
           <input
             type="number"
+            inputmode="decimal"
             min="0"
             step="0.01"
             :aria-label="`Amount for ${person.name}`"

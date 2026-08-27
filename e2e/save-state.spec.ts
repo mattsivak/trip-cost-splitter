@@ -89,3 +89,27 @@ test('leaving the trip takes the badge with it', async ({ page }) => {
   await page.getByRole('link', { name: 'Trip Cost Splitter' }).click()
   await expect(badge(page)).toHaveCount(0)
 })
+
+/**
+ * The badge is the trip's, and goes when you leave the trip — unless a save
+ * failed, because then it is the only thing that knows the edit has not landed,
+ * and its Retry is the only thing that can still land it.
+ */
+test('a save that failed keeps its badge and its retry when you leave', async ({ page }) => {
+  await startTrip(page)
+  await cutSaves(page)
+
+  await titleField(page).fill('Brno and back')
+  await expect(badge(page)).toContainText('Not saved')
+
+  await page.getByRole('link', { name: 'Trip Cost Splitter' }).click()
+  await expect(badge(page)).toContainText('Not saved')
+
+  await page.unroute('**/api/trips/**')
+  await page.getByRole('button', { name: 'Retry' }).click()
+  await expect(badge(page)).toContainText('Saved')
+
+  // And the edit it was holding is the one that landed.
+  await page.reload()
+  await expect(page.getByRole('link', { name: /Brno and back/ })).toBeVisible()
+})

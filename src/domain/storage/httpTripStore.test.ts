@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { makeTrip } from '../trip/testing'
 import type { Trip } from '../trip/types'
-import { createHttpTripStore, TRIP_INDEX_KEY, type TripApi } from './httpTripStore'
+import { createHttpTripStore, TRIP_INDEX_KEY, TripUnreachableError, type TripApi } from './httpTripStore'
 import { createMemoryStorage } from './localTripStore'
 
 function fakeApi(overrides: Partial<TripApi> = {}) {
@@ -215,5 +215,46 @@ describe('opening a trip from an edit link', () => {
 
     expect(await store.adopt('t1', 'wrong-key')).toBeNull()
     expect(store.keysFor('t1')?.editKey).toBe('e'.repeat(32))
+  })
+})
+
+describe('when the server cannot be reached', () => {
+  it('keeps the trip rather than deciding it is gone', async () => {
+    const { api } = fakeApi()
+    const store = createHttpTripStore(api, createMemoryStorage())
+    await store.save(makeTrip({ id: 't1', title: 'Alps' }))
+
+    api.read = vi.fn(async () => {
+      throw new Error('offline')
+    })
+
+    await expect(store.load('t1')).rejects.toBeInstanceOf(TripUnreachableError)
+    // The keys are the only way back into this trip. They stay.
+    expect(store.keysFor('t1')?.editKey).toBe('e'.repeat(32))
+    expect(await store.list()).toHaveLength(1)
+  })
+
+  /** A trip the server has actually deleted is a different thing, and does go. */
+  it('still forgets a trip the server says is gone', async () => {
+    const { api } = fakeApi()
+    const store = createHttpTripStore(api, createMemoryStorage())
+    await store.save(makeTrip({ id: 't1' }))
+
+    api.read = vi.fn(async () => null)
+
+    expect(await store.load('t1')).toBeNull()
+    expect(store.keysFor('t1')).toBeNull()
+  })
+
+  it('does not adopt from an edit link it could not check', async () => {
+    const { api } = fakeApi({
+      read: vi.fn(async () => {
+        throw new Error('offline')
+      }),
+    })
+    const store = createHttpTripStore(api, createMemoryStorage())
+
+    await expect(store.adopt('t1', 'e'.repeat(32))).rejects.toBeInstanceOf(TripUnreachableError)
+    expect(store.keysFor('t1')).toBeNull()
   })
 })

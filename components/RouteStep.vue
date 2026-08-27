@@ -151,7 +151,13 @@ function segmentBasis(segment: Trip['segments'][number]): string {
         <div class="stack stack--tight">
           <label v-if="!perKm" class="field">
             <span>Consumption {{ consumptionLabelFor(trip.energyKind) }}</span>
-            <input v-model.number="trip.consumptionPer100Km" type="number" min="0" step="0.1" />
+            <input
+              v-model.number="trip.consumptionPer100Km"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.1"
+            />
           </label>
           <p v-if="!perKm" class="hint">Used for any drive without its own figure.</p>
           <EnergyPrice :trip="trip" show-mode-note />
@@ -235,18 +241,18 @@ function segmentBasis(segment: Trip['segments'][number]): string {
             <button
               type="button"
               class="button--danger"
-              :disabled="index === 0"
+              :aria-disabled="index === 0"
               :aria-label="`Move ${segment.label || 'this part'} earlier`"
-              @click="move(index, -1)"
+              @click="index === 0 ? null : move(index, -1)"
             >
               ↑
             </button>
             <button
               type="button"
               class="button--danger"
-              :disabled="index === trip.segments.length - 1"
+              :aria-disabled="index === trip.segments.length - 1"
               :aria-label="`Move ${segment.label || 'this part'} later`"
-              @click="move(index, 1)"
+              @click="index === trip.segments.length - 1 ? null : move(index, 1)"
             >
               ↓
             </button>
@@ -265,13 +271,14 @@ function segmentBasis(segment: Trip['segments'][number]): string {
           </label>
           <label class="field">
             <span>Distance km</span>
-            <input v-model.number="segment.distanceKm" type="number" min="0" step="0.1" />
+            <input v-model.number="segment.distanceKm" type="number" inputmode="decimal" min="0" step="0.1" />
           </label>
           <label v-if="!perKm" class="field">
             <span>Consumption</span>
             <input
               v-model.number="segment.consumptionPer100Km"
               type="number"
+              inputmode="decimal"
               min="0"
               step="0.1"
               :placeholder="String(trip.consumptionPer100Km)"
@@ -293,6 +300,7 @@ function segmentBasis(segment: Trip['segments'][number]): string {
             <input
               :value="idleCostMajor(segment)"
               type="number"
+              inputmode="decimal"
               min="0"
               step="1"
               @input="setIdleCost(segment, Number(($event.target as HTMLInputElement).value))"
@@ -300,7 +308,7 @@ function segmentBasis(segment: Trip['segments'][number]): string {
           </label>
           <label v-else class="field">
             <span>{{ unitLabelFor(trip.energyKind) }} used</span>
-            <input v-model.number="segment.energy" type="number" min="0" step="0.1" />
+            <input v-model.number="segment.energy" type="number" inputmode="decimal" min="0" step="0.1" />
           </label>
         </div>
 

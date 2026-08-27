@@ -86,11 +86,17 @@ function when(iso: string): string {
         </div>
       </div>
 
-      <p v-if="loading" class="hint">Reading your trips…</p>
-      <p v-else-if="moved" class="hint">
+      <!--
+        News about the trips, not an alternative to them: this sat in the same
+        v-else-if chain as the list, so the one time it had something to say it
+        took the place of what it was talking about.
+      -->
+      <p v-if="moved" class="hint">
         Moved {{ moved }} {{ moved === 1 ? 'trip' : 'trips' }} from this browser onto the server, so they can
         be shared.
       </p>
+
+      <p v-if="loading" class="hint">Reading your trips…</p>
 
       <div v-else-if="!trips.length" class="empty">
         <p>Nothing here yet.</p>

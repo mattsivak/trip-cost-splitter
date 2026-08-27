@@ -9,7 +9,7 @@ const tripId = computed(() => String(route.params.id ?? ''))
 const openKey = ref('')
 if (import.meta.client) openKey.value = window.location.hash.replace(/^#/, '').trim()
 
-const { trip, result, status } = useTrip(tripId, openKey)
+const { trip, result, status, reload } = useTrip(tripId, openKey)
 const step = ref(0)
 
 useHead({ title: () => (trip.value ? `${trip.value.title} · Trip Cost Splitter` : 'Trip Cost Splitter') })
@@ -17,6 +17,20 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · Trip Cost Splitter`
 
 <template>
   <div v-if="status === 'loading'" class="hint">Opening the trip…</div>
+
+  <div v-else-if="status === 'unreachable'" class="empty">
+    <!--
+      A question that went unanswered is not the answer "gone". Telling somebody
+      their trip is not in this browser, when it is and the server merely could
+      not be asked, sends them looking for a link they never needed.
+    -->
+    <p>Could not reach the trip.</p>
+    <p class="hint">
+      Your trip is safe and still on this device — the connection is the problem. This app gets used in
+      tunnels; it happens.
+    </p>
+    <button type="button" @click="reload()">Try again</button>
+  </div>
 
   <div v-else-if="status === 'missing' || !trip || !result" class="empty">
     <p>That trip is not in this browser.</p>

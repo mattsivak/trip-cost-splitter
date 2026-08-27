@@ -1,3 +1,4 @@
+import { TripUnreachableError } from '~/src/domain/storage/httpTripStore'
 import { calculateTrip } from '~/src/domain/trip/calculateTrip'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -11,7 +12,12 @@ export function useTrip(tripId: MaybeRefOrGetter<string>, openKey?: MaybeRefOrGe
   const store = useTripStore()
   const saveState = useSaveState()
   const trip = ref<Trip | null>(null)
-  const status = ref<'loading' | 'ready' | 'missing'>('loading')
+  /**
+   * `missing` means the server says there is no such trip. `unreachable` means
+   * it was never asked — a distinction worth a state of its own, because one of
+   * them is permanent and the other clears when the signal comes back.
+   */
+  const status = ref<'loading' | 'ready' | 'missing' | 'unreachable'>('loading')
 
   const result = computed(() => (trip.value ? calculateTrip(trip.value) : null))
 
@@ -25,7 +31,16 @@ export function useTrip(tripId: MaybeRefOrGetter<string>, openKey?: MaybeRefOrGe
     // A key in the address means an edit link: this browser may never have
     // seen the trip, and the server decides whether the key really opens it.
     const key = openKey ? toValue(openKey).trim() : ''
-    const loaded = key ? await store.adopt(toValue(tripId), key) : await store.load(toValue(tripId))
+
+    let loaded: Trip | null
+    try {
+      loaded = key ? await store.adopt(toValue(tripId), key) : await store.load(toValue(tripId))
+    } catch (error) {
+      if (!(error instanceof TripUnreachableError)) throw error
+      status.value = 'unreachable'
+      hydrating = false
+      return
+    }
 
     // Once it is in the index the plain address works, so the key stops riding
     // in the bar where it can be shoulder-read or pasted on by accident.
@@ -51,10 +66,14 @@ export function useTrip(tripId: MaybeRefOrGetter<string>, openKey?: MaybeRefOrGe
   function saveNow() {
     const editing = trip.value
     if (!editing) return
-    unsaved = false
     // The same object is handed to the retry, and it is the one the wizard
-    // mutates, so a retry sends whatever the trip looks like by then.
-    return saveState.attempt(() => store.save(editing))
+    // mutates, so a retry sends whatever the trip looks like by then. The edit
+    // stops counting as unsaved only once a save has actually landed —
+    // clearing it up front is how a failed save used to be forgotten.
+    return saveState.attempt(async () => {
+      await store.save(editing)
+      unsaved = false
+    })
   }
 
   onMounted(load)
@@ -72,12 +91,22 @@ export function useTrip(tripId: MaybeRefOrGetter<string>, openKey?: MaybeRefOrGe
 
   onBeforeUnmount(() => {
     clearTimeout(saveTimer)
-    // The badge belongs to the trip; the list behind it has nothing to save.
-    saveState.reset()
 
     const editing = trip.value
-    if (!unsaved || !editing) return
-    void saveState.finish(() => store.save(editing))
+    if (unsaved && editing) {
+      // One last go on the way out. If it lands, `finish` clears the badge; if
+      // it does not, the badge and its retry are the only things left that know.
+      void saveState.finish(async () => {
+        await store.save(editing)
+        unsaved = false
+      })
+      return
+    }
+
+    // The badge belongs to the trip and the list behind it has nothing to save
+    // — but a failed save has to outlive the page it happened on, or leaving
+    // the trip quietly throws the edit away.
+    if (saveState.state.value !== 'failed') saveState.reset()
   })
 
   return { trip, result, status, reload: load, saveNow }

@@ -30,8 +30,12 @@ const api: TripApi = {
       return await $fetch<{ trip: Trip; access?: TripAccess; viewKey?: string }>(tripPath(id), {
         query: { key },
       })
-    } catch {
-      return null
+    } catch (error) {
+      // Only a 404 is an answer. Everything else — no network, a dead proxy,
+      // a 500 — is the question going unasked, and the store must be able to
+      // tell the difference: it drops a trip from the index when it is gone.
+      if (notFound(error)) return null
+      throw error
     }
   },
   async update(id, key, trip) {
@@ -41,6 +45,12 @@ const api: TripApi = {
   async destroy(id, key) {
     await $fetch(tripPath(id), { method: 'DELETE', query: { key } })
   },
+}
+
+/** The server answering "no such trip", as opposed to not answering. */
+function notFound(error: unknown): boolean {
+  const status = (error as { statusCode?: number; status?: number; response?: { status?: number } })
+  return status?.statusCode === 404 || status?.status === 404 || status?.response?.status === 404
 }
 
 function storage() {

@@ -20,7 +20,7 @@
 
   --ink: #191b19;
   --ink-soft: #5a5d58;
-  --ink-faint: #8b8e86;
+  --ink-faint: #6f7269;
 
   --rule: #cdc9bd;
   --rule-strong: #aeaa9a;
@@ -58,7 +58,7 @@
 
     --ink: #ece9df;
     --ink-soft: #a5a69c;
-    --ink-faint: #7c7e74;
+    --ink-faint: #95978d;
 
     --rule: #33352e;
     --rule-strong: #4a4d43;
@@ -90,7 +90,7 @@
 
   --ink: #ece9df;
   --ink-soft: #a5a69c;
-  --ink-faint: #7c7e74;
+  --ink-faint: #95978d;
 
   --rule: #33352e;
   --rule-strong: #4a4d43;
@@ -1581,4 +1581,19 @@ details.working[open] .working__chevron {
   .only-coarse {
     display: inline;
   }
+}
+
+/*
+ * Unavailable, but still reachable by keyboard. A button disabled the moment it
+ * is pressed drops focus to the document; one that says so with aria keeps it,
+ * and has to look the same as a disabled one to everybody else.
+ */
+button[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button[aria-busy='true'] {
+  opacity: 0.6;
+  cursor: progress;
 }
