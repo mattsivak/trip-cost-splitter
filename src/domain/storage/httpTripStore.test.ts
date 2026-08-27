@@ -11,9 +11,11 @@ function fakeApi(overrides: Partial<TripApi> = {}) {
       trips.set(trip.id, trip)
       return { id: trip.id, viewKey: 'v'.repeat(32), editKey: 'e'.repeat(32), trip }
     }),
-    read: vi.fn(async (id: string) => {
+    read: vi.fn(async (id: string, key: string) => {
       const trip = trips.get(id)
-      return trip ? { trip } : null
+      if (!trip) return null
+      const access = key === 'v'.repeat(32) ? ('view' as const) : ('edit' as const)
+      return access === 'edit' ? { trip, access, viewKey: 'v'.repeat(32) } : { trip, access }
     }),
     update: vi.fn(async (id: string, _key: string, trip: Trip) => {
       trips.set(id, trip)
@@ -140,5 +142,78 @@ describe('the local index', () => {
     await store.save(makeTrip({ id: 'new', updatedAt: '2026-01-01T00:00:00.000Z' }))
 
     expect((await store.list()).map((entry) => entry.id)).toEqual(['new', 'old'])
+  })
+})
+
+describe('opening a trip from an edit link', () => {
+  it('takes a trip this browser has never seen and remembers it', async () => {
+    const { api, trips } = fakeApi()
+    const store = createHttpTripStore(api, createMemoryStorage())
+    trips.set('t1', makeTrip({ id: 't1', title: 'Alps' }))
+
+    const adopted = await store.adopt('t1', 'e'.repeat(32))
+
+    expect(adopted?.title).toBe('Alps')
+    expect(store.keysFor('t1')?.editKey).toBe('e'.repeat(32))
+    // And it is now one of your trips, listed like any other.
+    expect(await store.list()).toHaveLength(1)
+  })
+
+  /** So the payment link still works on the device that opened the edit link. */
+  it('takes the view key the server hands back with the trip', async () => {
+    const { api, trips } = fakeApi()
+    const store = createHttpTripStore(api, createMemoryStorage())
+    trips.set('t1', makeTrip({ id: 't1' }))
+
+    await store.adopt('t1', 'e'.repeat(32))
+
+    expect(store.keysFor('t1')?.viewKey).toBe('v'.repeat(32))
+  })
+
+  /**
+   * A view key opens the trip — that is what the group's link is — but it
+   * cannot change it. Adopting on the strength of one would put the wizard in
+   * front of somebody whose every save is refused.
+   */
+  it('refuses a view key, which reads but cannot write', async () => {
+    const { api, trips } = fakeApi()
+    const store = createHttpTripStore(api, createMemoryStorage())
+    trips.set('t1', makeTrip({ id: 't1' }))
+
+    expect(await store.adopt('t1', 'v'.repeat(32))).toBeNull()
+    expect(store.keysFor('t1')).toBeNull()
+  })
+
+  it('reads with the key from the link, not one it already held', async () => {
+    const { api, trips } = fakeApi()
+    const store = createHttpTripStore(api, createMemoryStorage())
+    trips.set('t1', makeTrip({ id: 't1' }))
+
+    await store.adopt('t1', 'f'.repeat(32))
+
+    expect(api.read).toHaveBeenCalledWith('t1', 'f'.repeat(32))
+  })
+
+  it('remembers nothing when the key does not open the trip', async () => {
+    const { api } = fakeApi({ read: vi.fn(async () => null) })
+    const store = createHttpTripStore(api, createMemoryStorage())
+
+    expect(await store.adopt('t1', 'e'.repeat(32))).toBeNull()
+    expect(store.keysFor('t1')).toBeNull()
+    expect(await store.list()).toEqual([])
+  })
+
+  /**
+   * The view key is the only key the reader of a payment link has, and it must
+   * not become an edit key by being pasted into the wizard's address.
+   */
+  it('leaves an existing entry alone when the key is refused', async () => {
+    const { api } = fakeApi()
+    const store = createHttpTripStore(api, createMemoryStorage())
+    await store.save(makeTrip({ id: 't1', title: 'Alps' }))
+    api.read = vi.fn(async () => null)
+
+    expect(await store.adopt('t1', 'wrong-key')).toBeNull()
+    expect(store.keysFor('t1')?.editKey).toBe('e'.repeat(32))
   })
 })

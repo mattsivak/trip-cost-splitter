@@ -52,7 +52,7 @@ export function parseTrip(value: unknown): Trip | null {
     routePoints: asArray(value.routePoints).flatMap(parseRoutePoint),
     segments: asArray(value.segments).flatMap((segment) => parseSegment(segment, knownPeople)),
     overheadCosts: asArray(value.overheadCosts).flatMap((cost) => parseOverhead(cost, knownPeople)),
-    receipts: asArray(value.receipts).flatMap(parseReceipt),
+    receipts: asArray(value.receipts).flatMap((receipt) => parseReceipt(receipt, knownPeople)),
     rounding: parseRounding(value.rounding),
     paidAt: parsePaidAt(value.paidAt, knownPeople),
     ...(str(value.currencyCode) ? { currencyCode: str(value.currencyCode).toUpperCase() } : {}),
@@ -154,6 +154,9 @@ function parseOverhead(value: unknown, knownPeople: ReadonlySet<string>): Overhe
     allocation: parsed,
   }
 
+  const payer = str(value.paidBy)
+  if (payer && knownPeople.has(payer)) cost.paidBy = payer
+
   const foreign = parseForeign(value.foreign)
   if (foreign) {
     cost.foreign = foreign
@@ -163,13 +166,15 @@ function parseOverhead(value: unknown, knownPeople: ReadonlySet<string>): Overhe
   return [cost]
 }
 
-function parseReceipt(value: unknown): Receipt[] {
+function parseReceipt(value: unknown, knownPeople: Set<string>): Receipt[] {
   if (!isRecord(value)) return []
   const receipt: Receipt = {
     id: str(value.id) || createId('receipt'),
     label: str(value.label) || 'Receipt',
     amount: Math.round(num(value.amount, 0)),
   }
+  const payer = str(value.paidBy)
+  if (payer && knownPeople.has(payer)) receipt.paidBy = payer
   if (str(value.date)) receipt.date = str(value.date)
   if (str(value.notes)) receipt.notes = str(value.notes)
 

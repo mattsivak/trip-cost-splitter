@@ -39,6 +39,17 @@ export function buildViewUrl(origin: string, tripId: string, viewKey: string): s
   return `${base(origin)}/view/${encodeURIComponent(tripId)}#${viewKey}`
 }
 
+/**
+ * A link back into your own trip, with the edit key that opens it.
+ *
+ * The view link is for the group; this one is for you, on your other device or
+ * after this browser has forgotten which trips are yours. It grants everything
+ * the wizard can do, deleting included, so it is not a link to hand around.
+ */
+export function buildEditUrl(origin: string, tripId: string, editKey: string): string {
+  return `${base(origin)}/trip/${encodeURIComponent(tripId)}#${editKey}`
+}
+
 function base(origin: string): string {
   return origin.replace(/\/$/, '')
 }

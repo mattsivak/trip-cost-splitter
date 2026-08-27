@@ -30,6 +30,14 @@ export interface PersonBreakdown {
   exactTotal: Money
   /** What this person actually hands over, in whole major units. */
   payable: Money
+  /** Money this person laid out: their receipts and their overhead costs. */
+  fronted: Money
+  /**
+   * The net position: what they owe less what they fronted. Negative means
+   * they are owed money rather than owing it, which is the whole point of
+   * recording who paid.
+   */
+  owes: Money
   segmentIds: SegmentId[]
 }
 
@@ -47,6 +55,8 @@ export interface TripResult {
   maintenanceTotal: Money
   overheadTotal: Money
   receiptsTotal: Money
+  /** Everything anybody laid out: receipts and overhead costs together. */
+  frontedTotal: Money
   /**
    * Receipts minus the fuel actually charged out. Positive means the driver
    * spent more than the model bills anyone for — money they silently eat.
@@ -61,7 +71,13 @@ export interface TripResult {
   totalPayable: Money
   /** Sub-unit difference introduced by rounding to whole major units. */
   roundingResidual: Money
+  /**
+   * What the driver actually collects: the positive net positions only. Money
+   * a passenger laid out is theirs back, not the driver's to gather in.
+   */
   collectFromOthers: Money
+  /** And what the driver hands back to whoever laid out more than their share. */
+  sendBackTotal: Money
   driverPayable: Money
   segments: SegmentBreakdown[]
   people: PersonBreakdown[]

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sumMoney } from '../money/money'
-import { allocateOverhead } from './overhead'
+import { allocateOverhead, describeAllocation } from './overhead'
 import type { OverheadCost, Person } from './types'
 
 const people: Person[] = [
@@ -71,5 +71,40 @@ describe('fixed allocation', () => {
     )
     expect(result.shares).toEqual({ a: 5000 })
     expect(result.warnings).toHaveLength(1)
+  })
+})
+
+describe('describing who a cost is for', () => {
+  it('says everyone when nobody in particular is named', () => {
+    expect(describeAllocation(cost(), people)).toBe('everyone')
+  })
+
+  it('names the people a cost was restricted to', () => {
+    expect(describeAllocation(cost({ allocation: { type: 'even', personIds: ['a', 'c'] } }), people)).toBe(
+      'Ann and Cy',
+    )
+  })
+
+  it('reads as a sentence with three or more names', () => {
+    expect(
+      describeAllocation(cost({ allocation: { type: 'even', personIds: ['a', 'b', 'c'] } }), people),
+    ).toBe('Ann, Bo and Cy')
+  })
+
+  it('says nobody when a cost is charged to no one', () => {
+    expect(describeAllocation(cost({ allocation: { type: 'even', personIds: [] } }), people)).toBe('nobody')
+  })
+
+  /** Somebody removed from the trip should not haunt the description. */
+  it('leaves out people who are no longer on the trip', () => {
+    expect(describeAllocation(cost({ allocation: { type: 'even', personIds: ['a', 'gone'] } }), people)).toBe(
+      'Ann',
+    )
+  })
+
+  it('names each person when the amounts were set by hand', () => {
+    expect(
+      describeAllocation(cost({ allocation: { type: 'fixed', amounts: { a: 6000, b: 4000 } } }), people),
+    ).toBe('Ann and Bo')
   })
 })

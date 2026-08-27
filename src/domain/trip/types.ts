@@ -114,6 +114,11 @@ export interface OverheadCost {
   allocation: OverheadAllocation
   /** Set when the cost was paid in another currency. */
   foreign?: ForeignAmount
+  /**
+   * Who actually put the money down. Absent means the driver, which is what
+   * every trip written before this field existed meant by saying nothing.
+   */
+  paidBy?: PersonId
 }
 
 /** Money that actually left the driver's pocket. The ground truth. */
@@ -122,6 +127,8 @@ export interface Receipt {
   label: string
   /** Always the trip's own currency. Converted from `foreign` when there is one. */
   amount: Money
+  /** Who paid for it. Absent means the driver — see `OverheadCost.paidBy`. */
+  paidBy?: PersonId
   date?: string
   notes?: string
   /** Set when the fuel was bought in another currency. */

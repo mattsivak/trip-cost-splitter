@@ -9,9 +9,21 @@ import type { Trip } from './types'
  */
 export function formatTripSummary(trip: Trip, result: TripResult): string {
   const driver = result.people.find((person) => person.isDriver)
-  const owed = result.people
-    .filter((person) => !person.isDriver && person.payable > 0)
-    .sort((a, b) => b.payable - a.payable)
+
+  // Everything is settled through the driver: whoever is down sends them
+  // money, and the driver sends money back to anyone who laid out more than
+  // their share. Two lists rather than one, because with more than one payer
+  // some of the traffic runs the other way.
+  const sending = result.people
+    .filter((person) => !person.isDriver && person.owes > 0)
+    .sort((a, b) => b.owes - a.owes)
+  const owedBack = result.people
+    .filter((person) => !person.isDriver && person.owes < 0)
+    .sort((a, b) => a.owes - b.owes)
+
+  /** More than one person put money down, so "the driver paid" is no longer it. */
+  const payers = result.people.filter((person) => person.fronted > 0)
+  const sharedUpFront = payers.some((person) => !person.isDriver)
 
   // Priced per kilometre, no fuel is counted at all, so quoting a litre
   // figure of zero would be a lie dressed up as a measurement.
@@ -34,17 +46,34 @@ export function formatTripSummary(trip: Trip, result: TripResult): string {
     lines.push(`Of which ${formatMoney(result.overheadTotal, trip.currency)} is tolls, parking and the like.`)
   }
 
-  if (driver) {
+  if (sharedUpFront) {
+    lines.push(
+      payers
+        .map((person) => `${person.name} put in ${formatMoney(person.fronted, trip.currency)}`)
+        .join(', ') + '.',
+    )
+  } else if (driver) {
     lines.push(`${driver.name} paid up front and covers ${formatMoney(driver.payable, trip.currency)} of it.`)
   }
 
   lines.push('', `Please send ${driver ? driver.name : 'the driver'}:`)
 
-  if (owed.length === 0) {
+  if (sending.length === 0) {
     lines.push('  (nothing to collect)')
   } else {
-    for (const person of owed) lines.push(`  ${person.name}: ${formatMoney(person.payable, trip.currency)}`)
-    lines.push('', `Total to collect: ${formatMoney(result.collectFromOthers, trip.currency)}`)
+    for (const person of sending) lines.push(`  ${person.name}: ${formatMoney(person.owes, trip.currency)}`)
+    lines.push(
+      '',
+      `Total to collect: ${formatMoney(
+        sending.reduce((sum, person) => sum + person.owes, 0),
+        trip.currency,
+      )}`,
+    )
+  }
+
+  if (owedBack.length > 0 && driver) {
+    lines.push('', `${driver.name} sends back:`)
+    for (const person of owedBack) lines.push(`  ${person.name}: ${formatMoney(-person.owes, trip.currency)}`)
   }
 
   if (result.receiptsDelta >= 100) {

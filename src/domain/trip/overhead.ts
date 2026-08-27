@@ -54,3 +54,30 @@ export function allocateOverhead(cost: OverheadCost, people: readonly Person[]):
 
   return { shares, total: cost.amount, warnings }
 }
+
+/**
+ * Who a cost is charged to, written the way somebody would say it out loud.
+ *
+ * Both the editor and the read-only working need this sentence, and they must
+ * not each have their own opinion about it. People no longer on the trip are
+ * left out, exactly as `allocateOverhead` leaves them out of the money.
+ */
+export function describeAllocation(cost: OverheadCost, people: readonly Person[]): string {
+  const known = new Map(people.map((person) => [person.id, person.name]))
+
+  const targets =
+    cost.allocation.type === 'fixed'
+      ? Object.keys(cost.allocation.amounts)
+      : (cost.allocation.personIds ?? null)
+
+  if (targets === null) return 'everyone'
+
+  const names = targets.flatMap((personId) => {
+    const name = known.get(personId)
+    return name ? [name] : []
+  })
+
+  if (!names.length) return 'nobody'
+  if (names.length === 1) return names[0]!
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}

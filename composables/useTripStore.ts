@@ -10,6 +10,7 @@ import {
   TRIP_KEY_PREFIX,
 } from '~/src/domain/storage/localTripStore'
 import { summarize } from '~/src/domain/storage/tripStore'
+import type { TripAccess } from '~/src/domain/storage/tripRecord'
 import type { Trip } from '~/src/domain/trip/types'
 
 // Paths are typed as plain strings so Nitro does not try to infer each route's
@@ -26,7 +27,9 @@ const api: TripApi = {
   },
   async read(id, key) {
     try {
-      return await $fetch<{ trip: Trip }>(tripPath(id), { query: { key } })
+      return await $fetch<{ trip: Trip; access?: TripAccess; viewKey?: string }>(tripPath(id), {
+        query: { key },
+      })
     } catch {
       return null
     }

@@ -128,6 +128,23 @@ export function calculateTrip(trip: Trip): TripResult {
     }
   }
 
+  /**
+   * Who actually laid the money out. Unmarked money is the driver's, which is
+   * what every trip written before there was a payer meant by saying nothing,
+   * and a payer who has since left the trip falls back to the driver rather
+   * than dropping out of the reconciliation entirely.
+   */
+  const frontedByPerson = new Map<PersonId, Money>()
+  for (const entry of [...trip.receipts, ...trip.overheadCosts]) {
+    let payer = entry.paidBy ?? driver?.id
+    if (payer && !known.has(payer)) {
+      warnings.push(`"${entry.label}" is marked as paid by somebody no longer on the trip.`)
+      payer = driver?.id
+    }
+    if (!payer) continue
+    frontedByPerson.set(payer, (frontedByPerson.get(payer) ?? 0) + entry.amount)
+  }
+
   const totalExact = fuelTotal + maintenanceTotal + overheadTotal
   const exactByPerson = trip.people.map(
     (person) =>
@@ -159,6 +176,8 @@ export function calculateTrip(trip: Trip): TripResult {
     overheadShare: overheadByPerson.get(person.id) ?? 0,
     exactTotal: exactByPerson[index] ?? 0,
     payable: payables[index] ?? 0,
+    fronted: frontedByPerson.get(person.id) ?? 0,
+    owes: (payables[index] ?? 0) - (frontedByPerson.get(person.id) ?? 0),
     segmentIds: [...(segmentIdsByPerson.get(person.id) ?? [])],
   }))
 
@@ -215,11 +234,17 @@ export function calculateTrip(trip: Trip): TripResult {
     maintenanceTotal,
     overheadTotal,
     receiptsTotal,
+    frontedTotal: sumMoney([...frontedByPerson.values()]),
     receiptsDelta,
     totalExact,
     totalPayable,
     roundingResidual: totalPayable - totalExact,
-    collectFromOthers: sumMoney(people.filter((person) => !person.isDriver).map((person) => person.payable)),
+    collectFromOthers: sumMoney(
+      people.filter((person) => !person.isDriver && person.owes > 0).map((person) => person.owes),
+    ),
+    sendBackTotal: sumMoney(
+      people.filter((person) => !person.isDriver && person.owes < 0).map((person) => -person.owes),
+    ),
     driverPayable: people.find((person) => person.isDriver)?.payable ?? 0,
     segments,
     people,

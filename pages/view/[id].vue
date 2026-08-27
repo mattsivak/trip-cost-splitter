@@ -74,29 +74,22 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · what you owe` : 'Tr
   </div>
 
   <div v-else class="stack">
-    <section class="section" style="margin-top: 0">
-      <div class="section__head">
-        <div>
-          <p class="eyebrow">What you owe</p>
-          <h1>{{ trip.title }}</h1>
-          <p class="section__lede">
-            {{ formatKm(result.totalDistanceKm) }}
-            <template v-if="trip.pricing.mode !== 'per-km'">
-              · {{ formatBasis(trip, result.totalEnergy, result.totalDistanceKm) }}
-            </template>
-            ·
-            {{ Math.round(result.totalExact / 100).toLocaleString('cs-CZ') }} {{ trip.currency }} in total
-          </p>
-        </div>
+    <header class="section__head page-head">
+      <div>
+        <p class="eyebrow">What you owe</p>
+        <h1>{{ trip.title }}</h1>
+        <p class="section__lede">
+          {{ formatKm(result.totalDistanceKm) }}
+          <template v-if="trip.pricing.mode !== 'per-km'">
+            · {{ formatBasis(trip, result.totalEnergy, result.totalDistanceKm) }}
+          </template>
+          ·
+          {{ Math.round(result.totalExact / 100).toLocaleString('cs-CZ') }} {{ trip.currency }} in total
+        </p>
       </div>
+    </header>
 
-      <p class="view-note">
-        This is a read-only view of someone else's trip. You can pay and mark yourself paid; nothing else here
-        can be changed.
-      </p>
-    </section>
-
-    <section class="section">
+    <section class="section" style="margin-top: 0">
       <SettleList
         :trip="trip"
         :people="result.people"
@@ -109,8 +102,19 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · what you owe` : 'Tr
       </p>
     </section>
 
+    <!--
+      Not the point of the page — the buttons above are — but the first thing
+      anybody asks after "how much" is "for what", so it has to look like
+      something you can open rather than a footnote under the total.
+    -->
     <details class="working">
-      <summary>How this was worked out</summary>
+      <summary class="working__summary">
+        <span class="working__label">
+          <strong>See how this was worked out</strong>
+          <small>Every receipt, every stretch, and where your share came from</small>
+        </span>
+        <span class="working__chevron" aria-hidden="true">＋</span>
+      </summary>
       <TripWorking :trip="trip" :result="result" />
     </details>
   </div>

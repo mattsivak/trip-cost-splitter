@@ -12,16 +12,22 @@ useHead({
 </script>
 
 <template>
-  <div class="shell">
-    <header class="masthead">
+  <!-- Outside the shell so the sticky bar can be as wide as the window. -->
+  <header class="masthead">
+    <div class="masthead__inner">
       <NuxtLink to="/" class="masthead__mark">
         <strong>Trip Cost Splitter</strong>
         <span class="eyebrow">fuel, split by who was in the car</span>
       </NuxtLink>
 
-      <ThemeToggle />
-    </header>
+      <div class="masthead__tools">
+        <SaveState />
+        <ThemeToggle />
+      </div>
+    </div>
+  </header>
 
+  <div class="shell">
     <NuxtPage />
   </div>
 </template>

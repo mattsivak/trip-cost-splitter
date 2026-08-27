@@ -106,6 +106,80 @@ would be confidently wrong for most people.
 None of this blocks anything. If the lookup is slow, broken or unsure of the
 country, the trip opens at zero and the app simply asks for a price.
 
+## Getting back into your own trip
+
+There are no accounts, so a trip is yours because your browser holds the key
+that edits it. Clear your site data and it is gone from you while still sitting
+on the server; make a trip on your phone and your laptop has never heard of it.
+
+The Collect step copies **the link back to this trip** — the same shape as the
+payment link, the edit key in the fragment so it stays out of server logs and
+Referer headers. Open it anywhere and that browser adopts the trip: it is
+listed with your others, and edits save as they always did. The key is then
+dropped from the address bar, because the plain address works from that point
+on.
+
+The server decides whether a key really opens the trip, so a view key retyped
+into the wizard's address adopts nothing — it reads, and the client is told it
+only reads. An edit-key holder is handed the view key with the trip, which is
+what lets the second device build the group's payment link.
+
+It grants everything, deleting included. The app says so next to the button:
+that link is for you, not for the group chat.
+
+## Who actually paid
+
+For a long time this app had a rich vocabulary for who _owes_ and none at all
+for who _paid_. Every receipt and every toll was the driver's, and a passenger
+who bought the second tank had to work out the difference in their head — the
+one thing the app exists to abolish.
+
+Receipts and overhead costs now carry a `paidBy`. Absent means the driver,
+which is exactly what every trip written before this field existed meant by
+saying nothing, so nothing needed migrating and nothing reads differently until
+somebody says otherwise.
+
+Each person then has two numbers rather than one: their **share** of the bill,
+and their **net** — the share less whatever they laid out. A passenger who
+fronted 900 against a 800 share is owed 100 and is never shown a button asking
+them to pay. The columns only appear once somebody other than the driver has
+put money down; on the ordinary trip the share and the net are the same number,
+and printing it twice teaches nobody anything.
+
+**Everything settles through the driver.** Whoever is down sends them money,
+and they send money back to anyone who laid out more than their share. That is
+one transfer per person and no more, it needs only the one payment handle the
+app has ever asked for, and it is what the group chat message now says: a list
+to collect, and a list to send back. Fewer transfers are possible by pairing
+debtors against creditors directly, but that needs a payment handle for
+everybody, so it waits.
+
+The shared payment page names whose money each receipt was, and gives each
+person their own paid-and-net line in the working. Somebody who bought fuel on
+a trip should be able to open the link and see it counted.
+
+## Costs that are not everybody's
+
+Tolls, parking, a vignette, a ferry: the app calls these overheads, and by
+default it splits them evenly between everyone on the trip. Often that is
+wrong. The vignette is only for the three who crossed into Austria; the ferry
+ticket somebody got at half price is not half of a quarter each.
+
+So a cost can name who it is for — a row of the same pills the assign step uses
+— or drop the even split entirely and carry the exact amount each person owes.
+Switching to per-person amounts seeds them with the even split, so the change
+starts from where you were rather than from zero, and a set of amounts that no
+longer adds up to the cost says so in the warnings rather than quietly
+disagreeing with the total.
+
+The control stays shut until you open it. A cost that really is shared evenly
+is one line of text — _split evenly between everyone_ — and nothing else, and a
+trip that never touches this stores no allocation at all, exactly as before.
+
+The shared payment page names the people a restricted cost was charged to, in
+the working under the payment buttons. Someone who was not on that stretch of
+the trip should be able to see that they are not being billed for it.
+
 ## Money paid in another currency
 
 A trip that crosses a border spends more than one currency: Czech fuel on the
@@ -196,6 +270,17 @@ anything to eight people.
 The shared page names the account the money is going to, rather than hiding it
 inside a button, so nobody has to trust a link they cannot read.
 
+Under the buttons — deliberately under them, because the amount is the point
+and the arithmetic is not — the page opens up the whole working: what the bill
+was made of, the receipts behind it by name and amount, each person's share
+split into fuel, upkeep and other costs, and then every stretch of the trip
+with who was aboard for it. Nobody should have to take "you owe 804 Kč" on
+faith from a link.
+
+The parts that are zero are not shown. A trip with no upkeep and no tolls has
+no upkeep or tolls column, and its bill is one line rather than a subtotal
+that repeats the total underneath itself.
+
 Anyone can mark themselves paid from the shared link. That is a note between
 friends, taken on trust: the app cannot see a payment arrive and does not
 pretend to. `paidAt` has exactly one writer — its own endpoint — so a collector
@@ -233,6 +318,22 @@ migrate them rather than guess.
 Two links come out of the Collect step: the **payment link**, which is
 read-only, and an **editable copy**, which carries the whole trip in the URL
 fragment and gives the recipient their own separate copy.
+
+### Knowing it saved
+
+Every edit is a request, and this app gets used in cars and tunnels, so the
+masthead says where the last one got to. It sticks to the top of the page:
+
+| Shows         | Means                                                                      |
+| ------------- | -------------------------------------------------------------------------- |
+| nothing       | Nothing here autosaves — the trip list, the payment link                   |
+| `◌ Saving…`   | The edit is on its way                                                     |
+| `✓ Saved`     | It landed. It stays up rather than fading, so you can check after the fact |
+| `⚠ Not saved` | It did not land. **Retry** sends the trip as it stands now                 |
+
+`Not saved` persists until a retry succeeds, including if the save that fails
+is the one made on your way out of the trip. Nothing is lost by waiting: the
+retry sends the current trip, not the edit that happened to fail.
 
 ### Where the data lives
 

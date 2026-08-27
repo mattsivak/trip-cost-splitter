@@ -12,6 +12,15 @@ const copied = ref(false)
 
 const summary = computed(() => formatTripSummary(props.trip, props.result))
 
+/**
+ * Only worth two more columns once somebody other than the driver has put
+ * money down. On the ordinary trip the net position and the share are the same
+ * number, and printing it twice teaches nobody anything.
+ */
+const sharedUpFront = computed(() =>
+  props.result.people.some((person) => !person.isDriver && person.fronted > 0),
+)
+
 function setMode(mode: Trip['pricing']['mode']) {
   if (mode === 'from-receipts') props.trip.pricing = { mode }
   else if (mode === 'per-km') props.trip.pricing = { mode, ratePerKm: 0 }
@@ -57,9 +66,9 @@ async function copy() {
           <p class="eyebrow">Step 4</p>
           <h2>What was actually spent</h2>
           <p class="section__lede">
-            Receipts are the money that really left the driver's pocket. Price the trip from them and the
-            split always adds up to what was spent; set a price per unit instead and the app tells you what is
-            left over.
+            Receipts are the money that really left somebody's pocket — the driver's unless you say otherwise.
+            Price the trip from them and the split always adds up to what was spent; set a price per unit
+            instead and the app tells you what is left over.
           </p>
         </div>
       </div>
@@ -96,13 +105,14 @@ async function copy() {
 
       <EnergyPrice :trip="trip" />
 
-      <div class="field-row">
+      <div class="field-row field-row--entries">
         <div class="stack stack--tight">
           <p class="eyebrow">Receipts</p>
           <div v-for="receipt in trip.receipts" :key="receipt.id" class="entry-row">
             <input v-model="receipt.label" class="entry-row__label" aria-label="What it was for" />
             <input v-model="receipt.date" type="date" class="entry-row__date" aria-label="Date" />
             <AmountField :trip="trip" :entry="receipt" />
+            <PaidByField :trip="trip" :entry="receipt" />
             <button
               type="button"
               class="button--danger"
@@ -116,30 +126,35 @@ async function copy() {
               Add a receipt
             </button>
           </div>
-          <p class="hint">
-            Paid abroad? Change the currency and the rate for that day is filled in for you.
-          </p>
+          <p class="hint">Paid abroad? Change the currency and the rate for that day is filled in for you.</p>
         </div>
 
         <div class="stack stack--tight">
           <p class="eyebrow">Tolls, parking and the like</p>
-          <div v-for="cost in trip.overheadCosts" :key="cost.id" class="entry-row">
-            <input v-model="cost.label" class="entry-row__label" aria-label="What it was for" />
-            <AmountField :trip="trip" :entry="cost" />
-            <button
-              type="button"
-              class="button--danger"
-              @click="trip.overheadCosts = trip.overheadCosts.filter((entry) => entry.id !== cost.id)"
-            >
-              Remove
-            </button>
+          <div v-for="cost in trip.overheadCosts" :key="cost.id" class="overhead">
+            <div class="entry-row">
+              <input v-model="cost.label" class="entry-row__label" aria-label="What it was for" />
+              <AmountField :trip="trip" :entry="cost" />
+              <PaidByField :trip="trip" :entry="cost" />
+              <button
+                type="button"
+                class="button--danger"
+                @click="trip.overheadCosts = trip.overheadCosts.filter((entry) => entry.id !== cost.id)"
+              >
+                Remove
+              </button>
+            </div>
+            <OverheadSplit :trip="trip" :cost="cost" />
           </div>
           <div class="button-row">
             <button type="button" class="button--quiet" @click="trip.overheadCosts.push(createOverhead())">
               Add a cost
             </button>
           </div>
-          <p class="hint">Split evenly between everyone on the trip.</p>
+          <p class="hint">
+            Split evenly between everyone on the trip, unless a cost says otherwise — a vignette only the
+            people who crossed the border needed, a ferry ticket somebody got at half price.
+          </p>
         </div>
       </div>
     </section>
@@ -167,7 +182,9 @@ async function copy() {
               <th v-if="result.maintenanceTotal > 0" class="is-figure">Upkeep</th>
               <th class="is-figure">Other</th>
               <th class="is-figure">Exact</th>
-              <th class="is-figure">Owes</th>
+              <th v-if="sharedUpFront" class="is-figure">Paid</th>
+              <th class="is-figure">{{ sharedUpFront ? 'Share' : 'Owes' }}</th>
+              <th v-if="sharedUpFront" class="is-figure">Net</th>
             </tr>
           </thead>
           <tbody>
@@ -192,8 +209,17 @@ async function copy() {
               </td>
               <td class="is-figure" data-label="Other">{{ exact(person.overheadShare) }}</td>
               <td class="is-figure" data-label="Exact">{{ exact(person.exactTotal) }}</td>
-              <td class="is-figure" data-label="Owes">
+              <td v-if="sharedUpFront" class="is-figure" data-label="Paid">
+                {{ exact(person.fronted) }}
+              </td>
+              <td class="is-figure" :data-label="sharedUpFront ? 'Share' : 'Owes'">
                 <span class="total">{{ money(person.payable) }}</span>
+              </td>
+              <td v-if="sharedUpFront" class="is-figure" data-label="Net">
+                <span class="cell-name">
+                  <strong>{{ money(Math.abs(person.owes)) }}</strong>
+                  <small>{{ person.owes < 0 ? 'owed back' : person.owes > 0 ? 'to pay' : 'settled' }}</small>
+                </span>
               </td>
             </tr>
           </tbody>
@@ -201,9 +227,25 @@ async function copy() {
             <tr>
               <td class="is-rowhead">Total</td>
               <td class="is-figure" data-label="Fuel">{{ exact(result.fuelTotal) }}</td>
+              <!-- The head grows this column when upkeep is charged, so the
+                   totals row has to grow it too or every figure below shifts. -->
+              <td v-if="result.maintenanceTotal > 0" class="is-figure" data-label="Upkeep">
+                {{ exact(result.maintenanceTotal) }}
+              </td>
               <td class="is-figure" data-label="Other">{{ exact(result.overheadTotal) }}</td>
               <td class="is-figure" data-label="Exact">{{ exact(result.totalExact) }}</td>
-              <td class="is-figure" data-label="Owes">{{ money(result.totalPayable) }}</td>
+              <td v-if="sharedUpFront" class="is-figure" data-label="Paid">
+                {{ exact(result.frontedTotal) }}
+              </td>
+              <!-- Nothing to total under Net: the nets are a position, not a
+                   pot, and an empty cell is an empty labelled line on a phone. -->
+              <td
+                class="is-figure"
+                :colspan="sharedUpFront ? 2 : 1"
+                :data-label="sharedUpFront ? 'Share' : 'Owes'"
+              >
+                {{ money(result.totalPayable) }}
+              </td>
             </tr>
           </tfoot>
         </table>
@@ -291,5 +333,33 @@ async function copy() {
 .entry-row__date {
   flex: 0 1 auto;
   max-width: 150px;
+}
+
+/**
+ * A cost and the control saying who it is for, held together as one block —
+ * otherwise "split evenly between Matthew and Janca" reads as a note about
+ * whichever line happens to sit under it.
+ */
+.overhead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+}
+
+.overhead + .overhead {
+  border-top: 1px dotted var(--rule);
+  padding-top: 10px;
+}
+
+/**
+ * Receipts and costs sit side by side while there is room for them. A phone has
+ * not got the room: at 390px each column is 175px, and a cost that can say who
+ * it is for needs more than that — one name per line is not a list.
+ */
+@media (max-width: 620px) {
+  .field-row--entries {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

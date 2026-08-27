@@ -2,7 +2,14 @@
 const route = useRoute()
 const tripId = computed(() => String(route.params.id ?? ''))
 
-const { trip, result, status } = useTrip(tripId)
+/**
+ * A key in the fragment means somebody opened an edit link — their own way back
+ * into a trip this browser does not know. Read once, before the load.
+ */
+const openKey = ref('')
+if (import.meta.client) openKey.value = window.location.hash.replace(/^#/, '').trim()
+
+const { trip, result, status } = useTrip(tripId, openKey)
 const step = ref(0)
 
 useHead({ title: () => (trip.value ? `${trip.value.title} · Trip Cost Splitter` : 'Trip Cost Splitter') })

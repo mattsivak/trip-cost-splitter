@@ -1,3 +1,4 @@
+import type { TripAccess } from './tripRecord'
 import type { Trip } from '../trip/types'
 import type { KeyValueStore } from './localTripStore'
 import { summarize, type TripStore, type TripSummary } from './tripStore'
@@ -15,7 +16,12 @@ export interface IndexEntry extends TripKeys, TripSummary {}
 /** What this store needs from the API. Injected so it can be tested. */
 export interface TripApi {
   create(trip: Trip): Promise<{ id: string; viewKey: string; editKey: string; trip: Trip }>
-  read(id: string, key: string): Promise<{ trip: Trip } | null>
+  /**
+   * `access` says which key was accepted, and an edit read hands back the view
+   * key as well — the holder of the edit key is entitled to it, and needs it to
+   * build the group's payment link.
+   */
+  read(id: string, key: string): Promise<{ trip: Trip; access?: TripAccess; viewKey?: string } | null>
   update(id: string, key: string, trip: Trip): Promise<Trip>
   destroy(id: string, key: string): Promise<void>
 }
@@ -37,6 +43,7 @@ export function createHttpTripStore(
 ): TripStore & {
   keysFor(id: string): TripKeys | null
   remember(entry: IndexEntry): void
+  adopt(id: string, editKey: string): Promise<Trip | null>
 } {
   function readIndex(): IndexEntry[] {
     try {
@@ -71,6 +78,25 @@ export function createHttpTripStore(
     },
 
     remember,
+
+    /**
+     * Take a trip this browser does not know about, on the strength of a key
+     * from a link. The server is the one that decides: the key is tried, and
+     * only a trip that actually comes back is written into the index. So a
+     * view key pasted into the wizard's address adopts nothing, and a wrong
+     * key never overwrites a working entry.
+     */
+    async adopt(id: string, editKey: string): Promise<Trip | null> {
+      const answer = await api.read(id, editKey)
+      // A key that only reads is not one to build the wizard on: every save
+      // would be refused. Older servers say nothing, and are taken at their word.
+      if (!answer || answer.access === 'view') return null
+
+      const known = readIndex().find((candidate) => candidate.id === id)
+      const viewKey = answer.viewKey ?? known?.viewKey ?? ''
+      remember({ ...summarize(answer.trip), id, viewKey, editKey })
+      return answer.trip
+    },
 
     async list(): Promise<TripSummary[]> {
       return readIndex()

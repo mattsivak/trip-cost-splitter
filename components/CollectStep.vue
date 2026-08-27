@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { canBuildPaymentLinks, paymentCurrencyCode } from '~/src/domain/settle/payment'
 import { normalizeRevolutHandle, revolutProfileUrl } from '~/src/domain/settle/revolut'
-import { buildCopyUrl, buildViewUrl } from '~/src/domain/storage/urlCodec'
+import { buildCopyUrl, buildEditUrl, buildViewUrl } from '~/src/domain/storage/urlCodec'
 import type { TripResult } from '~/src/domain/trip/result'
 import type { Trip } from '~/src/domain/trip/types'
 
 const props = defineProps<{ trip: Trip; result: TripResult }>()
 
 const store = useTripStore()
-const copied = ref<'' | 'view' | 'copy'>('')
+const copied = ref<'' | 'view' | 'copy' | 'edit'>('')
 const busyPersonId = ref<string | null>(null)
 
 const keys = computed(() => store.keysFor(props.trip.id))
@@ -64,11 +64,14 @@ onMounted(() => {
   if (!props.trip.currencyCode && currencyCode.value) props.trip.currencyCode = currencyCode.value
 })
 
-async function copy(which: 'view' | 'copy') {
+async function copy(which: 'view' | 'copy' | 'edit') {
+  const origin = window.location.origin
   const link =
     which === 'view'
-      ? keys.value && buildViewUrl(window.location.origin, props.trip.id, keys.value.viewKey)
-      : buildCopyUrl(window.location.origin, props.trip)
+      ? keys.value && buildViewUrl(origin, props.trip.id, keys.value.viewKey)
+      : which === 'edit'
+        ? keys.value && buildEditUrl(origin, props.trip.id, keys.value.editKey)
+        : buildCopyUrl(origin, props.trip)
   if (!link) return
 
   try {
@@ -161,6 +164,9 @@ async function togglePaid(personId: string, paid: boolean) {
           <h2>Share it</h2>
         </div>
         <div class="button-row">
+          <button type="button" class="button--quiet" :disabled="!keys" @click="copy('edit')">
+            {{ copied === 'edit' ? 'Copied' : 'Copy the link back to this trip' }}
+          </button>
           <button type="button" class="button--quiet" :disabled="!keys" @click="copy('copy')">
             {{ copied === 'copy' ? 'Copied' : 'Copy an editable copy' }}
           </button>
@@ -174,6 +180,13 @@ async function togglePaid(personId: string, paid: boolean) {
         The payment link is read-only: whoever opens it sees the amounts and the working, and can mark
         themselves paid, but cannot change the trip. The editable copy is for handing the whole trip to
         somebody else — it makes them their own separate copy.
+      </p>
+
+      <p class="hint">
+        <strong>The link back to this trip is for you, not for the group.</strong> A trip is yours because
+        this browser holds its key, so clearing your site data — or picking up a different device — loses your
+        way in. Keep that link somewhere and you can open the trip anywhere. Anyone who has it can change the
+        trip and delete it, so it is not one to paste into the group chat.
       </p>
     </section>
 

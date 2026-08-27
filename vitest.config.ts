@@ -5,8 +5,10 @@ export default defineConfig({
     environment: 'happy-dom',
     globals: true,
     // e2e/ is Playwright's, and its *.spec.ts files match vitest's default
-    // glob. Without this, `npm test` tries to run them and fails.
-    exclude: ['node_modules/**', '.nuxt/**', '.output/**', 'e2e/**'],
+    // glob. Without this, `npm test` tries to run them and fails. .claude/
+    // holds worktrees — whole copies of this repo, tests and all — and every
+    // one of them would otherwise be collected and run a second time.
+    exclude: ['node_modules/**', '.nuxt/**', '.output/**', 'e2e/**', '.claude/**'],
   },
   resolve: {
     alias: {

@@ -96,8 +96,7 @@ test('the payment link shows amounts and the working, and cannot edit the trip',
 
   await page.goto(link)
   await expect(page.getByRole('heading', { name: 'Volkswagen August trip' })).toBeVisible()
-  await expect(page.getByText('read-only view of someone else')).toBeVisible()
-
+  // The page no longer says in words that it is read-only; it demonstrates it.
   // None of the wizard is reachable from here.
   await expect(page.getByRole('button', { name: 'Route' })).toHaveCount(0)
   await expect(page.getByLabel('Distance km')).toHaveCount(0)

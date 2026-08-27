@@ -86,3 +86,34 @@ describe('formatTripSummary', () => {
     expect(formatTripSummary(withTolls, calculateTrip(withTolls))).toContain('tolls, parking')
   })
 })
+
+describe('when somebody other than the driver paid for something', () => {
+  const shared = makeTrip({
+    title: 'Weekend run',
+    pricing: { mode: 'from-receipts' },
+    consumptionPer100Km: 10,
+    segments: [makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] })],
+    receipts: [
+      { id: 'r1', label: 'Fuel', amount: fromMajor(300) },
+      { id: 'r2', label: 'Second tank', amount: fromMajor(600), paidBy: 'bo' },
+    ],
+  })
+  const summary = formatTripSummary(shared, calculateTrip(shared))
+
+  it('says what each of them put in, not just the driver', () => {
+    expect(summary).toContain('Ann put in 300 Kč')
+    expect(summary).toContain('Bo put in 600 Kč')
+  })
+
+  it('asks only the people who are actually down to send anything', () => {
+    const collect = summary.slice(summary.indexOf('Please send Ann:'), summary.indexOf('Total to collect'))
+    // Bo is owed 300 of the 600 they laid out, so Bo is not on this list.
+    expect(collect).not.toContain('Bo:')
+    expect(collect).toContain('Cy: 300 Kč')
+  })
+
+  it('says what the driver has to send back', () => {
+    expect(summary).toContain('Ann sends back:')
+    expect(summary).toMatch(/^ {2}Bo: 300 Kč$/m)
+  })
+})

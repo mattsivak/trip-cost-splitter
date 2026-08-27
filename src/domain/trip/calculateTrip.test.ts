@@ -350,3 +350,124 @@ describe('wear and tear, charged by the kilometre', () => {
     expect(toMajor(result.people[0]!.maintenanceShare)).toBe(200)
   })
 })
+
+describe('money somebody other than the driver put in', () => {
+  it('counts a receipt against the person who paid it', () => {
+    const result = calculateTrip(
+      makeTrip({
+        pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(40) },
+        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
+        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400), paidBy: 'bo' }],
+      }),
+    )
+
+    const bo = result.people.find((person) => person.personId === 'bo')
+    expect(bo?.fronted).toBe(fromMajor(400))
+    expect(result.people.find((person) => person.personId === 'ann')?.fronted).toBe(0)
+  })
+
+  /** No payer named has always meant the driver, and still does. */
+  it('leaves an unmarked receipt with the driver', () => {
+    const result = calculateTrip(
+      makeTrip({
+        segments: [makeDrive({ occupantIds: ['ann', 'bo'] })],
+        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400) }],
+      }),
+    )
+
+    expect(result.people.find((person) => person.personId === 'ann')?.fronted).toBe(fromMajor(400))
+  })
+
+  it('counts a toll against whoever put it on their card', () => {
+    const result = calculateTrip(
+      makeTrip({
+        segments: [makeDrive({ occupantIds: ['ann', 'bo'] })],
+        overheadCosts: [
+          { id: 'o1', label: 'Toll', amount: fromMajor(300), allocation: { type: 'even' }, paidBy: 'cy' },
+        ],
+      }),
+    )
+
+    expect(result.people.find((person) => person.personId === 'cy')?.fronted).toBe(fromMajor(300))
+  })
+
+  it('ignores a payer who is not on the trip, so the money is not lost', () => {
+    const result = calculateTrip(
+      makeTrip({
+        segments: [makeDrive({ occupantIds: ['ann', 'bo'] })],
+        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400), paidBy: 'nobody' }],
+      }),
+    )
+
+    expect(result.people.find((person) => person.personId === 'ann')?.fronted).toBe(fromMajor(400))
+    expect(result.warnings.join(' ')).toContain('no longer on the trip')
+  })
+
+  it('nets what a person owes against what they fronted', () => {
+    const result = calculateTrip(
+      makeTrip({
+        pricing: { mode: 'from-receipts' },
+        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
+        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400), paidBy: 'bo' }],
+      }),
+    )
+
+    const bo = result.people.find((person) => person.personId === 'bo')
+    // Bo's half is 200, and Bo laid out 400: 200 comes back.
+    expect(bo?.payable).toBe(fromMajor(200))
+    expect(bo?.owes).toBe(fromMajor(-200))
+
+    const ann = result.people.find((person) => person.personId === 'ann')
+    expect(ann?.owes).toBe(fromMajor(200))
+  })
+
+  /** Nobody's money appears or vanishes in the netting. */
+  it('leaves the nets summing to what was billed less what was laid out', () => {
+    const result = calculateTrip(
+      makeTrip({
+        pricing: { mode: 'from-receipts' },
+        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] })],
+        receipts: [
+          { id: 'r1', label: 'Fuel', amount: fromMajor(400), paidBy: 'bo' },
+          { id: 'r2', label: 'More fuel', amount: fromMajor(101), paidBy: 'cy' },
+        ],
+      }),
+    )
+
+    const nets = result.people.reduce((sum, person) => sum + person.owes, 0)
+    expect(nets).toBe(result.totalPayable - result.frontedTotal)
+    expect(result.frontedTotal).toBe(fromMajor(501))
+  })
+})
+
+describe('what the driver actually collects', () => {
+  it('counts only the money that is really coming in', () => {
+    const result = calculateTrip(
+      makeTrip({
+        pricing: { mode: 'from-receipts' },
+        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] })],
+        receipts: [
+          { id: 'r1', label: 'Fuel', amount: fromMajor(300) },
+          { id: 'r2', label: 'Second tank', amount: fromMajor(600), paidBy: 'bo' },
+        ],
+      }),
+    )
+
+    // Bo is owed 300 and Cy owes 300, so 300 comes in and 300 goes back out.
+    expect(result.collectFromOthers).toBe(fromMajor(300))
+    expect(result.sendBackTotal).toBe(fromMajor(300))
+  })
+
+  it('is the whole of the others share when the driver paid for everything', () => {
+    const result = calculateTrip(
+      makeTrip({
+        pricing: { mode: 'from-receipts' },
+        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
+        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400) }],
+      }),
+    )
+
+    expect(result.collectFromOthers).toBe(fromMajor(200))
+    expect(result.sendBackTotal).toBe(0)
+  })
+})

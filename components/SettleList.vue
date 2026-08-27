@@ -21,10 +21,18 @@ const emit = defineEmits<{ togglePaid: [personId: string, paid: boolean] }>()
 
 const { money } = useMoney(() => props.trip.currency)
 
+/**
+ * Everything settles through the driver: whoever is down sends them money, and
+ * they send money back to anyone who laid out more than their share. So these
+ * lists run on the net position, not on the bill — somebody who bought the
+ * second tank should never be shown a button asking them to pay again.
+ */
 const owing = computed(() =>
-  props.people
-    .filter((person) => !person.isDriver && person.payable > 0)
-    .sort((a, b) => b.payable - a.payable),
+  props.people.filter((person) => !person.isDriver && person.owes > 0).sort((a, b) => b.owes - a.owes),
+)
+
+const owedBack = computed(() =>
+  props.people.filter((person) => !person.isDriver && person.owes < 0).sort((a, b) => a.owes - b.owes),
 )
 
 function paidOn(personId: string): string {
@@ -37,8 +45,8 @@ function paidOn(personId: string): string {
 }
 
 function payLink(person: PersonBreakdown): string | null {
-  // payable is already minor units, which is what the link wants.
-  return paymentLinkFor(props.trip, person.payable, paymentNote(person.name, props.trip.title))
+  // owes is already minor units, which is what the link wants.
+  return paymentLinkFor(props.trip, person.owes, paymentNote(person.name, props.trip.title))
 }
 
 /** Guards the sentence about buttons, so it cannot promise ones that are absent. */
@@ -55,7 +63,7 @@ const payee = computed(() => {
 const outstanding = computed(() =>
   owing.value
     .filter((person) => !props.trip.paidAt[person.personId])
-    .reduce((sum, person) => sum + person.payable, 0),
+    .reduce((sum, person) => sum + person.owes, 0),
 )
 </script>
 
@@ -70,7 +78,7 @@ const outstanding = computed(() =>
       <template v-else>. Send them {{ trip.currency }} there.</template>
     </p>
 
-    <div v-if="!owing.length" class="empty"><p>Nothing to collect.</p></div>
+    <div v-if="!owing.length && !owedBack.length" class="empty"><p>Nothing to collect.</p></div>
 
     <div v-else>
       <div
@@ -87,7 +95,7 @@ const outstanding = computed(() =>
           </small>
         </div>
 
-        <span class="settle-row__amount">{{ money(person.payable) }}</span>
+        <span class="settle-row__amount">{{ money(person.owes) }}</span>
 
         <span v-if="trip.paidAt[person.personId]" class="paid-mark"
           >✓ paid {{ paidOn(person.personId) }}</span
@@ -100,7 +108,7 @@ const outstanding = computed(() =>
           target="_blank"
           rel="noopener noreferrer"
         >
-          Pay {{ money(person.payable) }}
+          Pay {{ money(person.owes) }}
         </a>
 
         <button
@@ -118,5 +126,31 @@ const outstanding = computed(() =>
         >. Marking someone paid is a note between friends — nothing here can see the money arrive.
       </p>
     </div>
+
+    <!--
+      The traffic that runs the other way. Somebody who bought a tank of fuel
+      out of their own pocket is not settled up until this happens either.
+    -->
+    <div v-if="owedBack.length" class="settle-back">
+      <p class="hint">
+        <strong>{{ driver?.name ?? 'The driver' }} sends back</strong> what these people laid out over their
+        own share:
+      </p>
+      <div v-for="person in owedBack" :key="person.personId" class="settle-row">
+        <div class="settle-row__who">
+          <strong>{{ person.name }}</strong>
+          <small class="settle-row__meta">paid {{ money(person.fronted) }} up front</small>
+        </div>
+        <span class="settle-row__amount">{{ money(-person.owes) }}</span>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.settle-back {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px dotted var(--rule);
+}
+</style>

@@ -4,7 +4,7 @@ import { createTrip } from '../trip/factories'
 import { makeDrive, makeIdle, makeTrip } from '../trip/testing'
 import { createLocalTripStore, createMemoryStorage, TRIP_KEY_PREFIX } from './localTripStore'
 import { parseTrip } from './serialization'
-import { buildCopyUrl, buildViewUrl, decodeTripFromToken, encodeTripToToken } from './urlCodec'
+import { buildCopyUrl, buildEditUrl, buildViewUrl, decodeTripFromToken, encodeTripToToken } from './urlCodec'
 
 describe('parseTrip', () => {
   it('rejects anything that is not an object', () => {
@@ -159,6 +159,13 @@ describe('url sharing', () => {
     const url = buildViewUrl('https://trips.example.com/', 'trip-1', 'k'.repeat(32))
     expect(url).toBe(`https://trips.example.com/view/trip-1#${'k'.repeat(32)}`)
     expect(url.split('#')[0]).not.toContain('k'.repeat(32))
+  })
+
+  /** The way back into your own trip from a laptop, or after clearing storage. */
+  it('carries the edit key to the wizard, in the fragment too', () => {
+    const url = buildEditUrl('https://trips.example.com/', 'trip-1', 'e'.repeat(32))
+    expect(url).toBe(`https://trips.example.com/trip/trip-1#${'e'.repeat(32)}`)
+    expect(url.split('#')[0]).not.toContain('e'.repeat(32))
   })
 })
 
@@ -329,5 +336,42 @@ describe('amounts paid in another currency', () => {
     const once = parseTrip({ receipts: [eurReceipt] })
     const twice = parseTrip(JSON.parse(JSON.stringify(once)))
     expect(twice?.receipts).toEqual(once?.receipts)
+  })
+})
+
+describe('who paid for a receipt or a cost', () => {
+  const base = {
+    title: 'Alps',
+    people: [
+      { id: 'ann', name: 'Ann' },
+      { id: 'bo', name: 'Bo' },
+    ],
+    driverId: 'ann',
+  }
+
+  it('keeps the payer through a save and a load', () => {
+    const trip = parseTrip({
+      ...base,
+      receipts: [{ id: 'r1', label: 'Fuel', amount: 40000, paidBy: 'bo' }],
+      overheadCosts: [{ id: 'o1', label: 'Toll', amount: 30000, paidBy: 'bo' }],
+    })
+
+    expect(trip?.receipts[0]?.paidBy).toBe('bo')
+    expect(trip?.overheadCosts[0]?.paidBy).toBe('bo')
+  })
+
+  /** A payer who has been removed since is dropped, and means the driver again. */
+  it('drops a payer who is not on the trip', () => {
+    const trip = parseTrip({
+      ...base,
+      receipts: [{ id: 'r1', label: 'Fuel', amount: 40000, paidBy: 'gone' }],
+    })
+
+    expect(trip?.receipts[0]?.paidBy).toBeUndefined()
+  })
+
+  it('leaves a receipt with no payer alone', () => {
+    const trip = parseTrip({ ...base, receipts: [{ id: 'r1', label: 'Fuel', amount: 40000 }] })
+    expect(trip?.receipts[0]).not.toHaveProperty('paidBy')
   })
 })
