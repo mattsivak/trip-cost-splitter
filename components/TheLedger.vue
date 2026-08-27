@@ -24,6 +24,12 @@ const looking = ref(false)
 
 const unit = computed(() => unitLabelFor(props.trip.energyKind))
 const perKm = computed(() => props.trip.pricing.mode === 'per-km')
+const fromReceipts = computed(() => props.trip.pricing.mode === 'from-receipts')
+
+/** What the toggle means, for the hover that answers "what is this?". */
+const fuelHint =
+  'On: this is fuel money. It pays for the driving, and each leg is charged for the fuel it used. ' +
+  'Off: it is shared between the people it was for, like a toll or a coffee.'
 
 const stops = computed(() =>
   stopsDraft.value
@@ -264,7 +270,7 @@ function setRate(line: DriveLine | StopLine, major: number) {
         </div>
 
         <p v-if="line.kind === 'buy'" class="ledger__note">
-          <label class="toggle toggle--tiny" :class="{ 'is-on': line.funds === 'fuel' }">
+          <label class="toggle toggle--tiny" :class="{ 'is-on': line.funds === 'fuel' }" :title="fuelHint">
             <input
               type="checkbox"
               :checked="line.funds === 'fuel'"
@@ -272,7 +278,14 @@ function setRate(line: DriveLine | StopLine, major: number) {
             />
             <span>pays for the driving</span>
           </label>
-          <input v-model="line.date" type="date" class="ledger__date" aria-label="Date" />
+          <!--
+            Fuel money funds the pool the legs are charged against. Priced any
+            other way there is no pool to fund, so this money reaches nobody's
+            bill — which is silent unless the row says it out loud.
+          -->
+          <span v-if="line.funds === 'fuel' && !fromReceipts" class="ledger__warn">
+            not split — the driving is priced {{ perKm ? 'per km' : `by ${unit}` }}
+          </span>
         </p>
         <p v-else-if="priceNote(line)" class="ledger__note">{{ priceNote(line) }}</p>
       </li>
@@ -353,15 +366,14 @@ function setRate(line: DriveLine | StopLine, major: number) {
   max-width: 120px;
 }
 
-.ledger__date {
-  flex: 0 1 auto;
-  max-width: 150px;
-}
-
 .ledger__tools {
   display: flex;
   gap: var(--s1);
   margin-left: auto;
+}
+
+.ledger__warn {
+  color: var(--flag);
 }
 
 .ledger__note {

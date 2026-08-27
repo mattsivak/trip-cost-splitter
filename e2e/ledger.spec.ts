@@ -106,3 +106,64 @@ test('who pays asks one question per line and nothing else', async ({ page }) =>
   // And no distances or amounts to edit — that was the step before.
   await expect(lineOf(page, 'A → B').getByLabel('Distance km')).toHaveCount(0)
 })
+
+/**
+ * The date exists to pick a day's exchange rate. On a purchase in the trip's
+ * own currency it answers a question nobody asked, and it was the widest thing
+ * on the row.
+ */
+test('a purchase in the trip’s own currency asks for no date', async ({ page }) => {
+  await startTrip(page)
+  const line = await addPurchase(page, 'Parking Vienna', '100')
+
+  await expect(line.getByLabel('Date')).toHaveCount(0)
+})
+
+test('a purchase in another currency asks for the day its rate belongs to', async ({ page }) => {
+  await page.route('**/api/fx/rate**', (route) =>
+    route.fulfill({
+      json: {
+        rate: {
+          base: 'EUR',
+          quote: 'CZK',
+          rate: 24.21,
+          date: '2026-08-14',
+          fetchedAt: '2026-08-25T10:00:00.000Z',
+        },
+        reason: null,
+      },
+    }),
+  )
+  await startTrip(page)
+  const line = await addPurchase(page, 'Parking Vienna', '4')
+  await line.getByLabel('Paid in').selectOption('EUR')
+
+  await expect(line.getByLabel('Date')).toBeVisible()
+})
+
+test('the fuel toggle says what it means', async ({ page }) => {
+  await startTrip(page)
+  const line = await addPurchase(page, 'The tank', '600')
+
+  await expect(line.locator('label.toggle', { hasText: 'pays for the driving' })).toHaveAttribute(
+    'title',
+    /fuel/i,
+  )
+})
+
+/**
+ * Money marked as paying for the driving funds the pool the legs are charged
+ * against. On a trip priced per litre there is no pool to fund, so the money
+ * changes nobody's bill — which is invisible unless the row says so.
+ */
+test('a purchase that funds the driving says when it is not being divided', async ({ page }) => {
+  await startTrip(page)
+  await addPeople(page, ['Matthew', 'Janca'])
+  await addDrive(page, 'A', 'B', '100')
+  const line = await addPurchase(page, 'Parking Vienna', '100', true)
+
+  await expect(line).toContainText('not split')
+
+  await page.locator('.pricing').getByText('From the receipts').click()
+  await expect(line).not.toContainText('not split')
+})

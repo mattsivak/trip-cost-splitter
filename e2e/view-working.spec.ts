@@ -19,8 +19,26 @@ async function openPaymentLink(page: Page, options: { dateTheFirstReceipt?: bool
   await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
 
   if (options.dateTheFirstReceipt) {
+    // A date only exists where a rate does, so dating a purchase means buying
+    // it in another currency.
+    await page.route('**/api/fx/rate**', (route) =>
+      route.fulfill({
+        json: {
+          rate: {
+            base: 'EUR',
+            quote: 'CZK',
+            rate: 24.21,
+            date: '2026-08-14',
+            fetchedAt: '2026-08-25T10:00:00.000Z',
+          },
+          reason: null,
+        },
+      }),
+    )
     await goTo(page, 'Route')
-    await page.locator('.ledger__line--buy').first().getByLabel('Date').fill('2026-08-14')
+    const line = page.locator('.ledger__line--buy').first()
+    await line.getByLabel('Paid in').selectOption('EUR')
+    await line.getByLabel('Date').fill('2026-08-14')
   }
   const link = await paymentLink(page)
 

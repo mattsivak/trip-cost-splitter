@@ -66,8 +66,9 @@ test('a receipt in euros is converted at the rate for its day', async ({ page })
   await startTrip(page)
 
   const line = await addPurchase(page, 'Fuel', '0', true)
-  await line.getByLabel('Date').fill('2026-08-14')
+  // The date belongs to the rate, so it appears with the foreign amount.
   await line.getByLabel('Paid in').selectOption('EUR')
+  await line.getByLabel('Date').fill('2026-08-14')
   await line.getByLabel('Amount in EUR').fill('62.40')
 
   // 62,40 € at 24,21 is 1 510,70 Kč.

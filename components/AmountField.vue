@@ -159,6 +159,18 @@ const dayLabel = computed(() => {
     </div>
 
     <div v-if="entry.foreign" class="amount-field__fx">
+      <!--
+        The date is only ever asked because a rate belongs to a day, so it
+        belongs here rather than on every line of the ledger.
+      -->
+      <input
+        :value="entry.date ?? ''"
+        type="date"
+        class="amount-field__date"
+        aria-label="Date"
+        @input="entry.date = ($event.target as HTMLInputElement).value"
+      />
+
       <label class="amount-field__rate">
         <span class="amount-field__rate-label">Rate</span>
         <input
@@ -195,6 +207,11 @@ const dayLabel = computed(() => {
 .amount-field__row {
   display: flex;
   gap: 6px;
+}
+
+.amount-field__date {
+  flex: 0 1 auto;
+  max-width: 150px;
 }
 
 .amount-field__amount {
