@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { addDrive, addPeople, everyoneAboard, goTo } from './support/trip'
 
 /**
  * Pricing by the kilometre: no fuel is counted at all, and wear on the car can
@@ -32,19 +33,17 @@ async function startTrip(page: Page) {
   await stubLocalPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-  for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name', { exact: true }).fill(name)
-    await page.getByRole('button', { name: 'Add person' }).click()
-  }
-  await page.getByRole('button', { name: 'Add a drive' }).click()
-  await page.getByLabel('Distance km').fill('100')
-  await page.getByRole('button', { name: 'Everyone', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await addPeople(page, ['Matthew', 'Janca'])
+  await addDrive(page, 'A', 'B', '100')
+  await everyoneAboard(page)
+  await goTo(page, 'Route')
 }
 
 /** Switch to the per-km basis and set both rates. */
 async function priceByKm(page: Page, rate: string, upkeep: string) {
-  await page.getByText('Set a price per km').click()
+  await goTo(page, 'Route')
+  await page.locator('.pricing').getByText('Rate per km').click()
   await page.getByLabel('Kč per km', { exact: true }).fill(rate)
   await page.getByLabel('Kč per km, car costs').fill(upkeep)
 }
@@ -77,6 +76,7 @@ test('the message for the group chat names the car costs separately', async ({ p
   await startTrip(page)
   await priceByKm(page, '4', '2')
 
+  await goTo(page, 'Settle up')
   await expect(page.getByText('100 km · 600 Kč total')).toBeVisible()
   await expect(page.getByText('Of which 200 Kč is car costs.')).toBeVisible()
 })
@@ -96,19 +96,28 @@ test('car costs are charged on the consumption basis too', async ({ page }) => {
 test('car costs show in a share only once some are charged', async ({ page }) => {
   await startTrip(page)
 
+  await goTo(page, 'Settle up')
   const matthew = page.getByRole('group', { name: /'s share/ }).first()
   await matthew.locator('summary').click()
   await expect(matthew.locator('.person__working')).not.toContainText('Car costs')
 
+  await goTo(page, 'Route')
   await page.getByLabel('Kč per km, car costs').fill('2')
+
+  await goTo(page, 'Settle up')
+  await matthew.locator('summary').click()
   await expect(matthew.locator('.person__working')).toContainText('Car costs')
 })
 
 test('a waiting stop is priced as money when the trip is priced per km', async ({ page }) => {
   await startTrip(page)
   await priceByKm(page, '4', '0')
-  await page.getByRole('button', { name: 'Add a waiting stop after this' }).click()
-  await page.getByLabel('Kč it cost').fill('120')
+  await goTo(page, 'Route')
+  await page.getByRole('button', { name: 'Add a stop' }).click()
+  const stop = page.locator('.ledger__line').last()
+  await stop.getByLabel('What happened').fill('Waiting at the border')
+  await stop.getByLabel(/How .* is priced/).selectOption('money')
+  await stop.getByLabel('Kč it cost').fill('120')
   for (const button of await page.getByRole('button', { name: 'Everyone', exact: true }).all()) {
     await button.click()
   }
@@ -120,7 +129,7 @@ test('a waiting stop is priced as money when the trip is priced per km', async (
 test('switching back to a price per litre restores the fuel figures', async ({ page }) => {
   await startTrip(page)
   await priceByKm(page, '4', '0')
-  await page.getByText('Set a price per L').click()
+  await page.locator('.pricing').getByText('Price per L').click()
   await page.getByLabel('Kč per L').fill('40')
 
   const readout = readoutOf(page)

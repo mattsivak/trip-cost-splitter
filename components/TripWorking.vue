@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { bought, ridden } from '~/src/domain/trip/energy'
 import { formatMoney } from '~/src/domain/money/money'
 import { formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
 import { describeAllocation } from '~/src/domain/trip/overhead'
@@ -26,7 +27,10 @@ const unit = computed(() => unitLabelFor(props.trip.energyKind))
 const billHasParts = computed(() => props.result.maintenanceTotal > 0 || props.result.overheadTotal > 0)
 
 /** Dates are optional on a receipt, and a column of dashes is not information. */
-const anyReceiptDated = computed(() => props.trip.receipts.some((receipt) => receipt.date))
+const fuelBought = computed(() => bought(props.trip.lines).filter((line) => line.funds === 'fuel'))
+const sharedBought = computed(() => bought(props.trip.lines).filter((line) => line.funds === 'people'))
+
+const anyReceiptDated = computed(() => fuelBought.value.some((receipt) => receipt.date))
 
 /**
  * Whose money an entry was. Named only when it was not the driver's: on the
@@ -102,7 +106,7 @@ function chargedTo(cost: OverheadCost): string {
 
 /** Idle stops have no distance; showing a dash is honest, showing 0 km is not. */
 function distanceFor(segmentId: string): string {
-  const segment = props.trip.segments.find((entry) => entry.id === segmentId)
+  const segment = ridden(props.trip.lines).find((entry) => entry.id === segmentId)
   return segment?.kind === 'drive' ? formatKm(segment.distanceKm) : '—'
 }
 
@@ -145,7 +149,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
     </section>
 
     <section
-      v-if="trip.receipts.length"
+      v-if="fuelBought.length"
       class="working__part"
       :aria-label="sharedUpFront ? 'What was already paid' : 'What the driver paid'"
     >
@@ -161,7 +165,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="receipt in trip.receipts" :key="receipt.id">
+            <tr v-for="receipt in fuelBought" :key="receipt.id">
               <td class="is-rowhead">
                 <span class="cell-name">
                   <strong>{{ receipt.label || 'Fuel' }}</strong>
@@ -192,7 +196,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
       </div>
     </section>
 
-    <section v-if="trip.overheadCosts.length" class="working__part" aria-label="Extras">
+    <section v-if="sharedBought.length" class="working__part" aria-label="Extras">
       <h3 class="eyebrow">Extras</h3>
 
       <div class="table-wrap">
@@ -204,7 +208,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="cost in trip.overheadCosts" :key="cost.id">
+            <tr v-for="cost in sharedBought" :key="cost.id">
               <td class="is-rowhead">
                 <span class="cell-name">
                   <strong>{{ cost.label || 'Cost' }}</strong>
@@ -313,7 +317,7 @@ function whoWasOn(occupantIds: readonly string[]): string {
               <td class="is-rowhead">
                 <span class="cell-name">
                   <strong>{{ segment.label }}</strong>
-                  <small>{{ segment.kind === 'idle' ? 'idling' : 'drive' }}</small>
+                  <small>{{ segment.kind === 'stop' ? 'idling' : 'drive' }}</small>
                 </span>
               </td>
               <td class="is-figure" data-label="Distance">{{ distanceFor(segment.segmentId) }}</td>

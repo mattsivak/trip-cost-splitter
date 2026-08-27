@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { allocate, fromMajor, sumMoney, toMajor } from '~/src/domain/money/money'
 import { describeAllocation } from '~/src/domain/trip/overhead'
-import type { PersonId, Trip } from '~/src/domain/trip/types'
+import type { BuyLine, PersonId, Trip } from '~/src/domain/trip/types'
 
 /**
  * Who one non-fuel cost is actually for.
@@ -14,7 +14,7 @@ import type { PersonId, Trip } from '~/src/domain/trip/types'
  */
 const props = defineProps<{
   trip: Trip
-  cost: Trip['overheadCosts'][number]
+  cost: BuyLine
   /** Inside an expense row the sentence above it is the summary, so drop ours. */
   embedded?: boolean
 }>()

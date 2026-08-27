@@ -1,27 +1,8 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { addDrive, addPeople, addPurchase, everyoneAboard, goTo } from './support/trip'
 
 /** One expense, named and priced. `kind` moves it out of fuel into extras. */
-async function addExpense(page: Page, label: string, amount: string, kind: 'Fuel' | 'Extra' = 'Fuel') {
-  await page.getByRole('button', { name: 'Add an expense' }).click()
-  const row = page.locator('.expense').last()
-  await row.getByLabel('What it was for').fill(label)
-  await row.getByLabel('Amount').fill(amount)
-  if (kind === 'Extra') {
-    await openSentence(row)
-    await row.locator('label.toggle', { hasText: 'Extra' }).click()
-    // Leave it shut either way, so a test that opens it finds it closed.
-    await row.getByRole('button', { name: 'Done' }).click()
-  }
-  return row
-}
-
 /** The tappable "split · who paid" line that opens an expense. */
-async function openSentence(row: Locator) {
-  await row
-    .getByRole('button', { name: /Fuel for the whole trip|Split evenly|Set for each|Charged to/ })
-    .click()
-}
-
 /**
  * Amounts paid in another currency. The rate feed is stubbed for the same
  * reason every other outbound call is: a spec must not fail because a bank
@@ -73,24 +54,21 @@ async function startTrip(page: Page) {
   await stubLocalPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-  for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name', { exact: true }).fill(name)
-    await page.getByRole('button', { name: 'Add person' }).click()
-  }
-  await page.getByRole('button', { name: 'Add a drive' }).click()
-  await page.getByLabel('Distance km').fill('100')
-  await page.getByRole('button', { name: 'Everyone', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await addPeople(page, ['Matthew', 'Janca'])
+  await addDrive(page, 'A', 'B', '100')
+  await everyoneAboard(page)
+  await goTo(page, 'Route')
 }
 
 test('a receipt in euros is converted at the rate for its day', async ({ page }) => {
   await stubRate(page)
   await startTrip(page)
 
-  await page.getByRole('button', { name: 'Add an expense' }).click()
-  await page.getByLabel('Date').fill('2026-08-14')
-  await page.getByLabel('Paid in').selectOption('EUR')
-  await page.getByLabel('Amount in EUR').fill('62.40')
+  const line = await addPurchase(page, 'Fuel', '0', true)
+  await line.getByLabel('Date').fill('2026-08-14')
+  await line.getByLabel('Paid in').selectOption('EUR')
+  await line.getByLabel('Amount in EUR').fill('62.40')
 
   // 62,40 € at 24,21 is 1 510,70 Kč.
   await expect(page.getByText('= 1 510,70 Kč')).toBeVisible()
@@ -101,13 +79,14 @@ test('the converted amount is what the split actually divides', async ({ page })
   await stubRate(page)
   await startTrip(page)
 
-  await page.getByText('Price from the receipts').click()
-  await page.getByRole('button', { name: 'Add an expense' }).click()
-  await page.getByLabel('Paid in').selectOption('EUR')
-  await page.getByLabel('Amount in EUR').fill('62.40')
+  await page.locator('.pricing').getByText('From the receipts').click()
+  const line = await addPurchase(page, 'Fuel', '0', true)
+  await line.getByLabel('Paid in').selectOption('EUR')
+  await line.getByLabel('Amount in EUR').fill('62.40')
 
   // The whole 1 510,70 Kč gets divided, so each of the two owes 755 Kč.
   await expect(readoutOf(page)).toContainText('1 511 Kč')
+  await goTo(page, 'Settle up')
   await expect(page.getByText('Janca: 755 Kč')).toBeVisible()
 })
 
@@ -115,9 +94,9 @@ test('typing your own rate drops the feed’s attribution', async ({ page }) => 
   await stubRate(page)
   await startTrip(page)
 
-  await page.getByRole('button', { name: 'Add an expense' }).click()
-  await page.getByLabel('Paid in').selectOption('EUR')
-  await page.getByLabel('Amount in EUR').fill('100')
+  const line = await addPurchase(page, 'Fuel', '0', true)
+  await line.getByLabel('Paid in').selectOption('EUR')
+  await line.getByLabel('Amount in EUR').fill('100')
   await expect(page.getByText('ECB, 14. 8.')).toBeVisible()
 
   // The trip shows its currency as a symbol, so the field is labelled with one.
@@ -130,11 +109,12 @@ test('an amount with no rate is called out rather than counted as nothing', asyn
   await stubNoRate(page)
   await startTrip(page)
 
-  await page.getByRole('button', { name: 'Add an expense' }).click()
-  await page.getByLabel('Paid in').selectOption('EUR')
-  await page.getByLabel('Amount in EUR').fill('62.40')
+  const line = await addPurchase(page, 'Fuel', '0', true)
+  await line.getByLabel('Paid in').selectOption('EUR')
+  await line.getByLabel('Amount in EUR').fill('62.40')
 
   await expect(page.getByText('no rate — not being counted')).toBeVisible()
+  await goTo(page, 'Settle up')
   await expect(page.getByText('is in EUR with no exchange rate')).toBeVisible()
 })
 
@@ -142,7 +122,7 @@ test('tolls can be foreign too, and land in the split', async ({ page }) => {
   await stubRate(page)
   await startTrip(page)
 
-  const overhead = await addExpense(page, 'Motorway toll', '0', 'Extra')
+  const overhead = await addPurchase(page, 'Motorway toll', '0')
   await overhead.getByLabel('Paid in').selectOption('EUR')
   await overhead.getByLabel('Amount in EUR').fill('12.40')
 
@@ -156,13 +136,13 @@ test('switching back to the trip’s own currency keeps the amount settled', asy
   await startTrip(page)
 
   // Priced from the receipts, so the converted figure is the whole total.
-  await page.getByText('Price from the receipts').click()
-  await page.getByRole('button', { name: 'Add an expense' }).click()
-  await page.getByLabel('Paid in').selectOption('EUR')
-  await page.getByLabel('Amount in EUR').fill('62.40')
+  await page.locator('.pricing').getByText('From the receipts').click()
+  const line = await addPurchase(page, 'Fuel', '0', true)
+  await line.getByLabel('Paid in').selectOption('EUR')
+  await line.getByLabel('Amount in EUR').fill('62.40')
   await expect(page.getByText('= 1 510,70 Kč')).toBeVisible()
 
-  await page.getByLabel('Paid in').selectOption('CZK')
+  await line.getByLabel('Paid in').selectOption('CZK')
   // No longer a conversion: the figure that was reached stays as the amount.
   await expect(page.getByLabel('Paid in')).toHaveValue('CZK')
   await expect(page.getByText('= 1 510,70 Kč')).toHaveCount(0)

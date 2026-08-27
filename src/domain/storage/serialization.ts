@@ -3,16 +3,18 @@ import { isEnergyKind, type EnergyKind } from '../pricing/energyKind'
 import { convertAmount, isCurrencyCode, normalizeCurrencyCode } from '../pricing/fxRates'
 import { createId, createTrip } from '../trip/factories'
 import type {
+  BuyLine,
+  LineCharge,
   DistanceSource,
   ForeignAmount,
-  OverheadCost,
+  OverheadAllocation,
   Person,
   PriceSource,
   Pricing,
-  Receipt,
   RoutePoint,
   Segment,
   Trip,
+  TripLine,
 } from '../trip/types'
 
 /**
@@ -50,14 +52,40 @@ export function parseTrip(value: unknown): Trip | null {
     driverId,
     people,
     routePoints: asArray(value.routePoints).flatMap(parseRoutePoint),
-    segments: asArray(value.segments).flatMap((segment) => parseSegment(segment, knownPeople)),
-    overheadCosts: asArray(value.overheadCosts).flatMap((cost) => parseOverhead(cost, knownPeople)),
-    receipts: asArray(value.receipts).flatMap((receipt) => parseReceipt(receipt, knownPeople)),
+    lines: parseLines(value, knownPeople),
     rounding: parseRounding(value.rounding),
     paidAt: parsePaidAt(value.paidAt, knownPeople),
     ...(str(value.currencyCode) ? { currencyCode: str(value.currencyCode).toUpperCase() } : {}),
     ...(str(value.revolutHandle) ? { revolutHandle: str(value.revolutHandle) } : {}),
   }
+}
+
+/**
+ * The ledger, however it was written down.
+ *
+ * A trip saved before the ledger existed has three lists — the drives and
+ * stops in order, then the fuel receipts, then the tolls — and the order it
+ * implies is the order they go in. Nothing is lost and nothing needs
+ * converting on disk: the old shape is simply read as the new one.
+ */
+function parseLines(value: Record<string, unknown>, knownPeople: ReadonlySet<string>): TripLine[] {
+  if (Array.isArray(value.lines)) {
+    return value.lines.flatMap((line) => parseLine(line, knownPeople))
+  }
+
+  return [
+    ...asArray(value.segments).flatMap((segment) => parseSegment(segment, knownPeople)),
+    ...asArray(value.receipts).flatMap((receipt) => parseBuy(receipt, knownPeople, 'fuel')),
+    ...asArray(value.overheadCosts).flatMap((cost) => parseBuy(cost, knownPeople, 'people')),
+  ]
+}
+
+function parseLine(value: unknown, knownPeople: ReadonlySet<string>): TripLine[] {
+  if (!isRecord(value)) return []
+  if (value.kind === 'buy') {
+    return parseBuy(value, knownPeople, value.funds === 'fuel' ? 'fuel' : 'people')
+  }
+  return parseSegment(value, knownPeople)
 }
 
 function parsePerson(value: unknown): Person[] {
@@ -87,20 +115,20 @@ function parseSegment(value: unknown, knownPeople: ReadonlySet<string>): Segment
     (personId): personId is string => typeof personId === 'string' && knownPeople.has(personId),
   )
 
-  if (value.kind === 'idle') {
-    const idle: Segment = {
-      kind: 'idle',
+  if (value.kind === 'idle' || value.kind === 'stop') {
+    const stop: Segment = {
+      kind: 'stop',
       id,
       label: str(value.label) || 'Waiting',
       // `liters` is the name trips saved before kWh existed.
       energy: pickNumber(value.energy, value.liters) ?? 0,
       occupantIds,
     }
-    const cost = pickNumber(value.cost)
-    if (cost !== null) idle.cost = Math.round(Math.max(0, cost))
-    if (str(value.location)) idle.location = str(value.location)
-    if (str(value.notes)) idle.notes = str(value.notes)
-    return [idle]
+    const charge = parseCharge(value)
+    if (charge) stop.charge = charge
+    if (str(value.location)) stop.location = str(value.location)
+    if (str(value.notes)) stop.notes = str(value.notes)
+    return [stop]
   }
 
   const from = str(value.from)
@@ -122,14 +150,36 @@ function parseSegment(value: unknown, knownPeople: ReadonlySet<string>): Segment
   const measured = pickNumber(value.directEnergy, value.directLiters)
   if (measured !== null) drive.directEnergy = measured
   if (str(value.notes)) drive.notes = str(value.notes)
+  const charge = parseCharge(value)
+  if (charge) drive.charge = charge
   return [drive]
 }
 
-function parseOverhead(value: unknown, knownPeople: ReadonlySet<string>): OverheadCost[] {
+/**
+ * A line priced by hand. `cost` is what a stop's flat price was called before
+ * a drive could carry one too.
+ */
+function parseCharge(value: Record<string, unknown>): LineCharge | null {
+  const charge = isRecord(value.charge) ? value.charge : null
+  if (charge?.mode === 'per-km') {
+    return { mode: 'per-km', ratePerKm: Math.round(Math.max(0, num(charge.ratePerKm, 0))) }
+  }
+  if (charge?.mode === 'money') {
+    return { mode: 'money', amount: Math.round(Math.max(0, num(charge.amount, 0))) }
+  }
+  const legacy = pickNumber(value.cost)
+  return legacy === null ? null : { mode: 'money', amount: Math.round(Math.max(0, legacy)) }
+}
+
+/**
+ * Money spent, from any of the three shapes it has been stored in: a receipt,
+ * an overhead cost, or a ledger line. `funds` is what tells them apart.
+ */
+function parseBuy(value: unknown, knownPeople: ReadonlySet<string>, funds: 'fuel' | 'people'): BuyLine[] {
   if (!isRecord(value)) return []
 
   const allocation = isRecord(value.allocation) ? value.allocation : {}
-  let parsed: OverheadCost['allocation'] = { type: 'even' }
+  let parsed: OverheadAllocation = { type: 'even' }
 
   if (allocation.type === 'fixed') {
     const amounts: Record<string, number> = {}
@@ -147,45 +197,27 @@ function parseOverhead(value: unknown, knownPeople: ReadonlySet<string>): Overhe
     }
   }
 
-  const cost: OverheadCost = {
-    id: str(value.id) || createId('overhead'),
-    label: str(value.label) || 'Other cost',
+  const line: BuyLine = {
+    kind: 'buy',
+    id: str(value.id) || createId('buy'),
+    label: str(value.label) || (funds === 'fuel' ? 'Fuel' : 'Cost'),
     amount: Math.round(num(value.amount, 0)),
+    funds,
     allocation: parsed,
   }
 
   const payer = str(value.paidBy)
-  if (payer && knownPeople.has(payer)) cost.paidBy = payer
-  if (str(value.date)) cost.date = str(value.date)
+  if (payer && knownPeople.has(payer)) line.paidBy = payer
+  if (str(value.date)) line.date = str(value.date)
+  if (str(value.notes)) line.notes = str(value.notes)
 
   const foreign = parseForeign(value.foreign)
   if (foreign) {
-    cost.foreign = foreign
-    cost.amount = convertAmount(foreign.originalAmount, foreign.rate)
+    line.foreign = foreign
+    line.amount = convertAmount(foreign.originalAmount, foreign.rate)
   }
 
-  return [cost]
-}
-
-function parseReceipt(value: unknown, knownPeople: Set<string>): Receipt[] {
-  if (!isRecord(value)) return []
-  const receipt: Receipt = {
-    id: str(value.id) || createId('receipt'),
-    label: str(value.label) || 'Receipt',
-    amount: Math.round(num(value.amount, 0)),
-  }
-  const payer = str(value.paidBy)
-  if (payer && knownPeople.has(payer)) receipt.paidBy = payer
-  if (str(value.date)) receipt.date = str(value.date)
-  if (str(value.notes)) receipt.notes = str(value.notes)
-
-  const foreign = parseForeign(value.foreign)
-  if (foreign) {
-    receipt.foreign = foreign
-    receipt.amount = convertAmount(foreign.originalAmount, foreign.rate)
-  }
-
-  return [receipt]
+  return [line]
 }
 
 /**

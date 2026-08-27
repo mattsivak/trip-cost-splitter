@@ -1,59 +1,28 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import {
+  addDrive,
+  addPeople,
+  addPurchase,
+  everyoneAboard,
+  goTo,
+  paymentLink,
+  stubPrice,
+} from './support/trip'
 
 /** One expense, named and priced. `kind` moves it out of fuel into extras. */
-async function addExpense(page: Page, label: string, amount: string, kind: 'Fuel' | 'Extra' = 'Fuel') {
-  await page.getByRole('button', { name: 'Add an expense' }).click()
-  const row = page.locator('.expense').last()
-  await row.getByLabel('What it was for').fill(label)
-  await row.getByLabel('Amount').fill(amount)
-  if (kind === 'Extra') {
-    await openSentence(row)
-    await row.locator('label.toggle', { hasText: 'Extra' }).click()
-    // Leave it shut either way, so a test that opens it finds it closed.
-    await row.getByRole('button', { name: 'Done' }).click()
-  }
-  return row
-}
-
 /** The tappable "split · who paid" line that opens an expense. */
-async function openSentence(row: Locator) {
-  await row
-    .getByRole('button', { name: /Fuel for the whole trip|Split evenly|Set for each|Charged to/ })
-    .click()
-}
-
-/**
- * The working shown on the link you send the group.
- *
- * The people who open this link did not build the trip and were not there for
- * every leg of it. "You owe 804 Kč" is the headline, but the next question is
- * always "for what?", and this is where that gets answered.
- */
-
-async function stubPrice(page: Page) {
-  await page.route('**/api/pricing/local**', (route) =>
-    route.fulfill({ json: { price: null, country: null, reason: 'unknown-country' } }),
-  )
-}
-
 /** The example trip, published, and opened the way a recipient opens it. */
 async function openPaymentLink(page: Page, options: { dateTheFirstReceipt?: boolean } = {}) {
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
 
   if (options.dateTheFirstReceipt) {
-    await page.getByLabel('Date').first().fill('2026-08-14')
+    await goTo(page, 'Route')
+    await page.locator('.ledger__line--buy').first().getByLabel('Date').fill('2026-08-14')
   }
-  await page.getByLabel('Your Revolut handle').fill('mattsivak')
-  await page.waitForResponse(
-    (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
-  )
-
-  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
-  await page.getByRole('button', { name: 'Copy the payment link' }).click()
-  const link = await page.evaluate(() => navigator.clipboard.readText())
+  const link = await paymentLink(page)
 
   await page.goto(link)
   await expect(page.getByRole('heading', { name: 'Volkswagen August trip' })).toBeVisible()
@@ -137,25 +106,15 @@ async function openLinkForTripWithExtras(page: Page) {
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-  for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name', { exact: true }).fill(name)
-    await page.getByRole('button', { name: 'Add person' }).click()
-  }
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await addPeople(page, ['Matthew', 'Janca'])
+  await goTo(page, 'Route')
   await page.getByLabel('Kč per L').fill('40')
   await page.getByLabel('Kč per km, car costs').fill('2')
-  await page.getByRole('button', { name: 'Add a drive' }).click()
-  await page.getByLabel('Distance km').fill('100')
-  await page.getByRole('button', { name: 'Everyone', exact: true }).click()
-  await addExpense(page, 'Motorway toll', '300', 'Extra')
-  await page.getByLabel('Your Revolut handle').fill('mattsivak')
-  await page.waitForResponse(
-    (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
-  )
-
-  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
-  await page.getByRole('button', { name: 'Copy the payment link' }).click()
-  const link = await page.evaluate(() => navigator.clipboard.readText())
+  await addDrive(page, 'A', 'B', '100')
+  await everyoneAboard(page)
+  await addPurchase(page, 'Motorway toll', '300')
+  const link = await paymentLink(page)
   await page.goto(link)
   await expect(page.getByRole('link', { name: /^Pay / }).first()).toBeVisible()
 }
@@ -191,17 +150,14 @@ test('a trip that is missing something says so on the page it sends out', async 
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-  await page.getByText('Set a price per L').click()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await goTo(page, 'Route')
+  await page.locator('.pricing').getByText('Price per L').click()
+  await goTo(page, 'Route')
   await page.getByLabel('Kč per L').fill('0')
+  await goTo(page, 'Settle up')
   await expect(page.getByText(/Set a price per/).first()).toBeVisible()
-  await page.getByLabel('Your Revolut handle').fill('mattsivak')
-  await page.waitForResponse(
-    (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
-  )
-  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
-  await page.getByRole('button', { name: 'Copy the payment link' }).click()
-  await page.goto(await page.evaluate(() => navigator.clipboard.readText()))
+  await page.goto(await paymentLink(page))
 
   await expect(page.getByRole('heading', { name: 'Volkswagen August trip' })).toBeVisible()
   await expect(page.getByText(/Set a price per/)).toBeVisible()

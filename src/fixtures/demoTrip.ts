@@ -14,7 +14,7 @@ import type { Trip } from '../domain/trip/types'
  * 9% high and contradicted itself, billing Šumperk → Olomouc at 65.2 km and
  * the identical return leg at 58.9.
  *
- * The occupancy of the idle stop is a reconstruction — the canister was
+ * The occupancy of the waiting stop is a reconstruction — the canister was
  * burned while waiting at Milovice, and this is the group that was there.
  *
  * Loaded on demand from the trip list. It is deliberately NOT the app's
@@ -66,23 +66,29 @@ export function createDemoTrip(): Trip {
       { id: 'p5', label: 'Kunčice', query: 'Kunčice pod Ondřejníkem' },
     ],
 
-    segments: [
+    lines: [
       drive('d1', 'Šumperk', 'Olomouc', 59.7, ['matthew']),
       drive('d2', 'Olomouc', 'Milovice', 223.3, ['matthew', 'terka', 'janca', 'anet']),
-      idleStop('i1', 'Milovice', 20, ['matthew', 'terka', 'janca', 'anet', 'lucis', 'vena']),
+      stop('i1', 'Milovice', 20, ['matthew', 'terka', 'janca', 'anet', 'lucis', 'vena']),
       drive('d3', 'Milovice', 'Olomouc', 223.2, ['matthew', 'terka', 'janca', 'anet', 'lucis', 'vena']),
       drive('d4', 'Olomouc', 'Vsetín', 91, ['matthew', 'terka', 'janca']),
       drive('d5', 'Vsetín', 'Kunčice', 43.3, ['matthew', 'terka', 'janca', 'lucis', 'ondrej', 'maruska']),
       drive('d6', 'Kunčice', 'Olomouc', 93.7, ['matthew', 'terka', 'lucis']),
       drive('d7', 'Olomouc', 'Šumperk', 59.1, ['matthew']),
+      buy('r1', 'Visible fuel purchases', 6033.73),
+      buy('r2', 'Canister, ~20 L', 860),
     ],
+  }
+}
 
-    overheadCosts: [],
-
-    receipts: [
-      { id: 'r1', label: 'Visible fuel purchases', amount: fromMajor(6033.73) },
-      { id: 'r2', label: 'Canister, ~20 L', amount: fromMajor(860) },
-    ],
+function buy(id: string, label: string, amountMajor: number) {
+  return {
+    kind: 'buy' as const,
+    id,
+    label,
+    amount: fromMajor(amountMajor),
+    funds: 'fuel' as const,
+    allocation: { type: 'even' as const },
   }
 }
 
@@ -99,9 +105,9 @@ function drive(id: string, from: string, to: string, distanceKm: number, occupan
   }
 }
 
-function idleStop(id: string, location: string, energy: number, occupantIds: string[]) {
+function stop(id: string, location: string, energy: number, occupantIds: string[]) {
   return {
-    kind: 'idle' as const,
+    kind: 'stop' as const,
     id,
     label: `Canister burned waiting at ${location}`,
     location,

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { energyForSegment, totalDistanceKm, totalEnergy } from './energy'
-import type { DriveSegment, IdleSegment, Trip } from './types'
+import type { DriveLine, StopLine, Trip } from './types'
 
 const trip: Pick<Trip, 'consumptionPer100Km'> = { consumptionPer100Km: 9.5 }
 
-function drive(overrides: Partial<DriveSegment> = {}): DriveSegment {
+function drive(overrides: Partial<DriveLine> = {}): DriveLine {
   return {
     kind: 'drive',
     id: 'd1',
@@ -18,8 +18,8 @@ function drive(overrides: Partial<DriveSegment> = {}): DriveSegment {
   }
 }
 
-function idle(overrides: Partial<IdleSegment> = {}): IdleSegment {
-  return { kind: 'idle', id: 'i1', label: 'Waiting', energy: 8, occupantIds: [], ...overrides }
+function idle(overrides: Partial<StopLine> = {}): StopLine {
+  return { kind: 'stop', id: 'i1', label: 'Waiting', energy: 8, occupantIds: [], ...overrides }
 }
 
 describe('energyForSegment', () => {
@@ -49,7 +49,7 @@ describe('energyForSegment', () => {
 describe('totals', () => {
   const full = {
     consumptionPer100Km: 10,
-    segments: [drive({ distanceKm: 100 }), drive({ id: 'd2', distanceKm: 50 }), idle({ energy: 5 })],
+    lines: [drive({ distanceKm: 100 }), drive({ id: 'd2', distanceKm: 50 }), idle({ energy: 5 })],
   }
 
   it('sums litres across drives and idle stops', () => {

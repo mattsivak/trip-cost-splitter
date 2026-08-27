@@ -4,7 +4,7 @@ import type { PersonId, SegmentId } from './types'
 export interface SegmentBreakdown {
   segmentId: SegmentId
   label: string
-  kind: 'drive' | 'idle'
+  kind: 'drive' | 'stop'
   energy: number
   energyPerOccupant: number
   /** Kilometres this segment put on the car. Zero for an idle stop. */

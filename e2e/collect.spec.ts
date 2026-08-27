@@ -1,27 +1,17 @@
 import { expect, test, type Page } from '@playwright/test'
-
-/**
- * The settling-up flow, end to end against the real API: a trip is created on
- * the server, the payment link is read-only, and marking someone paid there is
- * visible to whoever is collecting.
- */
-
-async function stubPrice(page: Page) {
-  await page.route('**/api/pricing/local**', (route) =>
-    route.fulfill({ json: { price: null, country: null, reason: 'unknown-country' } }),
-  )
-}
+import { addDrive, everyoneAboard, goTo, stubPrice } from './support/trip'
 
 async function openDemoAtCollect(page: Page) {
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await goTo(page, 'Settle up')
   await expect(page.getByRole('heading', { name: 'Getting it back' })).toBeVisible()
 }
 
 /** The payment link, read out of the clipboard the way a person would paste it. */
-async function paymentLink(page: Page): Promise<string> {
+async function copyLink(page: Page): Promise<string> {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.getByRole('button', { name: 'Copy the payment link' }).click()
   return page.evaluate(() => navigator.clipboard.readText())
@@ -36,7 +26,7 @@ async function waitForSave(page: Page) {
 
 test('a trip is saved on the server, so it survives the browser forgetting nothing', async ({ page }) => {
   await openDemoAtCollect(page)
-  const link = await paymentLink(page)
+  const link = await copyLink(page)
   expect(link).toMatch(/\/view\/[^#]+#[0-9a-f]{32}$/)
 })
 
@@ -91,7 +81,7 @@ test('the payment link shows amounts and the working, and cannot edit the trip',
   await openDemoAtCollect(page)
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await waitForSave(page)
-  const link = await paymentLink(page)
+  const link = await copyLink(page)
 
   await page.goto(link)
   await expect(page.getByRole('heading', { name: 'Volkswagen August trip' })).toBeVisible()
@@ -113,7 +103,7 @@ test('the payment link shows amounts and the working, and cannot edit the trip',
 
 test('marking yourself paid on the shared link is visible to the collector', async ({ page, context }) => {
   await openDemoAtCollect(page)
-  const link = await paymentLink(page)
+  const link = await copyLink(page)
   const tripUrl = page.url()
 
   const guest = await context.newPage()
@@ -129,10 +119,11 @@ test('marking yourself paid on the shared link is visible to the collector', asy
 
 test('a collector with the trip open cannot wipe a mark made on the link', async ({ page, context }) => {
   await openDemoAtCollect(page)
-  const link = await paymentLink(page)
+  const link = await copyLink(page)
   const tripUrl = page.url()
 
   // The collector edits something, so an autosave of the whole trip is pending.
+  await goTo(page, 'Route')
   await page.getByLabel('Kč per L').fill('44')
 
   const guest = await context.newPage()
@@ -159,21 +150,22 @@ test('a trip made from scratch gets payment buttons, not just the promise of the
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
   for (const name of ['Matthew', 'Janca']) {
     await page.getByPlaceholder('Name', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Add person' }).click()
   }
+  await goTo(page, 'Route')
   // The stubbed lookup leaves no price, so without this nobody owes anything.
   await page.getByLabel('Kč per L').fill('40')
-  await page.getByRole('button', { name: 'Add a drive' }).click()
-  await page.getByLabel('Distance km').fill('100')
-  await page.getByRole('button', { name: 'Everyone', exact: true }).click()
+  await addDrive(page, 'A', 'B', '100')
+  await everyoneAboard(page)
+  await goTo(page, 'Settle up')
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await expect(page.getByRole('link', { name: /^Pay / })).toBeVisible()
   await waitForSave(page)
 
-  const link = await paymentLink(page)
+  const link = await copyLink(page)
   const guest = await context.newPage()
   await guest.goto(link)
 
@@ -189,7 +181,7 @@ test('a trip made from scratch gets payment buttons, not just the promise of the
 
 test('a link without its key opens nothing', async ({ page }) => {
   await openDemoAtCollect(page)
-  const link = await paymentLink(page)
+  const link = await copyLink(page)
 
   await page.goto(link.split('#')[0]!)
   await expect(page.getByText('This link does not open anything')).toBeVisible()
@@ -197,7 +189,7 @@ test('a link without its key opens nothing', async ({ page }) => {
 
 test('a link with the wrong key opens nothing', async ({ page }) => {
   await openDemoAtCollect(page)
-  const link = await paymentLink(page)
+  const link = await copyLink(page)
 
   await page.goto(`${link.split('#')[0]}#${'a'.repeat(32)}`)
   await expect(page.getByText('This link does not open anything')).toBeVisible()

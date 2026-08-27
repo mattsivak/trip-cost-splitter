@@ -1,5 +1,5 @@
 import { fromMajor } from '../money/money'
-import type { DriveSegment, IdleSegment, Trip } from './types'
+import type { BuyLine, DriveLine, StopLine, Trip } from './types'
 
 /** Test-only builders. Keeps the intent of each test visible instead of buried. */
 export function makeTrip(overrides: Partial<Trip> = {}): Trip {
@@ -20,16 +20,14 @@ export function makeTrip(overrides: Partial<Trip> = {}): Trip {
       { id: 'cy', name: 'Cy' },
     ],
     routePoints: [],
-    segments: [],
-    overheadCosts: [],
-    receipts: [],
+    lines: [],
     rounding: 'nearest',
     paidAt: {},
     ...overrides,
   }
 }
 
-export function makeDrive(overrides: Partial<DriveSegment> = {}): DriveSegment {
+export function makeDrive(overrides: Partial<DriveLine> = {}): DriveLine {
   return {
     kind: 'drive',
     id: 'drive-1',
@@ -43,6 +41,19 @@ export function makeDrive(overrides: Partial<DriveSegment> = {}): DriveSegment {
   }
 }
 
-export function makeIdle(overrides: Partial<IdleSegment> = {}): IdleSegment {
-  return { kind: 'idle', id: 'idle-1', label: 'Waiting', energy: 10, occupantIds: ['ann'], ...overrides }
+export function makeStop(overrides: Partial<StopLine> = {}): StopLine {
+  return { kind: 'stop', id: 'stop-1', label: 'Waiting', energy: 10, occupantIds: ['ann'], ...overrides }
+}
+
+/** Money spent. Fuel pays for the driving; anything else is shared out. */
+export function makeBuy(overrides: Partial<BuyLine> = {}): BuyLine {
+  return {
+    kind: 'buy',
+    id: 'buy-1',
+    label: 'Fuel',
+    amount: 0,
+    funds: 'fuel',
+    allocation: { type: 'even' },
+    ...overrides,
+  }
 }

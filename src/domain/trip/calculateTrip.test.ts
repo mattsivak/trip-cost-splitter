@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fromMajor, sumMoney, toMajor } from '../money/money'
 import { calculateTrip } from './calculateTrip'
-import { makeDrive, makeIdle, makeTrip } from './testing'
+import { makeDrive, makeStop, makeTrip } from './testing'
 
 describe('fixed-price mode', () => {
   it('charges litres at the stated price', () => {
@@ -9,7 +9,7 @@ describe('fixed-price mode', () => {
       makeTrip({
         pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(43) },
         consumptionPer100Km: 10,
-        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
+        lines: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
       }),
     )
 
@@ -22,8 +22,17 @@ describe('fixed-price mode', () => {
   it('surfaces the gap between receipts and what is charged out', () => {
     const result = calculateTrip(
       makeTrip({
-        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
-        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(1000) }],
+        lines: [
+          makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] }),
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r1',
+            label: 'Fuel',
+            amount: fromMajor(1000),
+          },
+        ],
       }),
     )
 
@@ -33,7 +42,7 @@ describe('fixed-price mode', () => {
 
   it("warns when no price is set, naming the trip's own unit", () => {
     const result = calculateTrip(
-      makeTrip({ pricing: { mode: 'fixed-price', pricePerUnit: 0 }, segments: [makeDrive()] }),
+      makeTrip({ pricing: { mode: 'fixed-price', pricePerUnit: 0 }, lines: [makeDrive()] }),
     )
     expect(result.warnings).toContain('Set a price per L.')
 
@@ -41,7 +50,7 @@ describe('fixed-price mode', () => {
       makeTrip({
         pricing: { mode: 'fixed-price', pricePerUnit: 0 },
         energyKind: 'electric',
-        segments: [makeDrive()],
+        lines: [makeDrive()],
       }),
     )
     expect(electric.warnings).toContain('Set a price per kWh.')
@@ -52,11 +61,18 @@ describe('from-receipts mode', () => {
   const trip = makeTrip({
     pricing: { mode: 'from-receipts' },
     consumptionPer100Km: 10,
-    segments: [
+    lines: [
       makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo'] }),
       makeDrive({ id: 'd2', distanceKm: 100, occupantIds: ['ann'] }),
+      {
+        kind: 'buy',
+        funds: 'fuel',
+        allocation: { type: 'even' },
+        id: 'r1',
+        label: 'Fuel',
+        amount: fromMajor(900),
+      },
     ],
-    receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(900) }],
   })
 
   it('divides exactly the money that was actually spent', () => {
@@ -79,7 +95,7 @@ describe('from-receipts mode', () => {
   })
 
   it('asks for a receipt when there are none', () => {
-    const result = calculateTrip(makeTrip({ pricing: { mode: 'from-receipts' }, segments: [makeDrive()] }))
+    const result = calculateTrip(makeTrip({ pricing: { mode: 'from-receipts' }, lines: [makeDrive()] }))
     expect(result.warnings.some((warning) => warning.includes('receipt'))).toBe(true)
   })
 })
@@ -87,13 +103,27 @@ describe('from-receipts mode', () => {
 describe('reconciliation', () => {
   const awkward = makeTrip({
     pricing: { mode: 'from-receipts' },
-    segments: [
+    lines: [
       makeDrive({ id: 'd1', distanceKm: 33.3, occupantIds: ['ann', 'bo', 'cy'] }),
       makeDrive({ id: 'd2', distanceKm: 77.7, occupantIds: ['ann', 'cy'] }),
-      makeIdle({ id: 'i1', energy: 7, occupantIds: ['bo', 'cy'] }),
+      makeStop({ id: 'i1', energy: 7, occupantIds: ['bo', 'cy'] }),
+      {
+        kind: 'buy',
+        funds: 'fuel',
+        allocation: { type: 'even' },
+        id: 'r1',
+        label: 'Fuel',
+        amount: fromMajor(1234.57),
+      },
+      {
+        kind: 'buy',
+        funds: 'people',
+        id: 'o1',
+        label: 'Tolls',
+        amount: fromMajor(100),
+        allocation: { type: 'even' },
+      },
     ],
-    overheadCosts: [{ id: 'o1', label: 'Tolls', amount: fromMajor(100), allocation: { type: 'even' } }],
-    receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(1234.57) }],
   })
 
   it('never loses a minor unit across people', () => {
@@ -133,11 +163,18 @@ describe('reconciliation', () => {
         const result = calculateTrip(
           makeTrip({
             pricing: { mode: 'from-receipts' },
-            segments: [
+            lines: [
               makeDrive({ id: 'd1', distanceKm: km, occupantIds: ['ann', 'bo', 'cy'] }),
               makeDrive({ id: 'd2', distanceKm: km / 3, occupantIds: ['bo'] }),
+              {
+                kind: 'buy',
+                funds: 'fuel',
+                allocation: { type: 'even' },
+                id: 'r1',
+                label: 'Fuel',
+                amount: fromMajor(spend),
+              },
             ],
-            receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(spend) }],
           }),
         )
         expect(result.fuelTotal).toBe(fromMajor(spend))
@@ -149,7 +186,7 @@ describe('reconciliation', () => {
 
 describe('edge cases the old model got wrong', () => {
   it('gives an unassigned segment to the driver and says so', () => {
-    const result = calculateTrip(makeTrip({ segments: [makeDrive({ occupantIds: [] })] }))
+    const result = calculateTrip(makeTrip({ lines: [makeDrive({ occupantIds: [] })] }))
     const ann = result.people[0]!
     expect(ann.fuelShare).toBe(result.fuelTotal)
     // The old code charged the driver but left the segment off their list.
@@ -158,18 +195,18 @@ describe('edge cases the old model got wrong', () => {
   })
 
   it('ignores occupants who have been removed from the trip', () => {
-    const result = calculateTrip(makeTrip({ segments: [makeDrive({ occupantIds: ['ann', 'ghost'] })] }))
+    const result = calculateTrip(makeTrip({ lines: [makeDrive({ occupantIds: ['ann', 'ghost'] })] }))
     expect(result.people[0]!.fuelShare).toBe(result.fuelTotal)
   })
 
   it('does not double-charge a person listed twice on one segment', () => {
-    const result = calculateTrip(makeTrip({ segments: [makeDrive({ occupantIds: ['ann', 'ann', 'bo'] })] }))
+    const result = calculateTrip(makeTrip({ lines: [makeDrive({ occupantIds: ['ann', 'ann', 'bo'] })] }))
     expect(result.segments[0]!.occupantIds).toEqual(['ann', 'bo'])
     expect(result.people[0]!.fuelShare).toBe(result.people[1]!.fuelShare)
   })
 
   it('warns when there is no driver to collect', () => {
-    const result = calculateTrip(makeTrip({ driverId: null, segments: [makeDrive()] }))
+    const result = calculateTrip(makeTrip({ driverId: null, lines: [makeDrive()] }))
     expect(result.warnings.some((warning) => warning.includes('No driver'))).toBe(true)
     expect(result.driverPayable).toBe(0)
   })
@@ -184,7 +221,16 @@ describe('edge cases the old model got wrong', () => {
   it('counts overhead even when no fuel was used', () => {
     const result = calculateTrip(
       makeTrip({
-        overheadCosts: [{ id: 'o1', label: 'Parking', amount: fromMajor(300), allocation: { type: 'even' } }],
+        lines: [
+          {
+            kind: 'buy',
+            funds: 'people',
+            id: 'o1',
+            label: 'Parking',
+            amount: fromMajor(300),
+            allocation: { type: 'even' },
+          },
+        ],
       }),
     )
     expect(toMajor(result.overheadTotal)).toBe(300)
@@ -195,7 +241,7 @@ describe('edge cases the old model got wrong', () => {
 describe('priced by the kilometre', () => {
   const trip = makeTrip({
     pricing: { mode: 'per-km', ratePerKm: fromMajor(4) },
-    segments: [
+    lines: [
       makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo'] }),
       makeDrive({ id: 'd2', distanceKm: 50, occupantIds: ['ann'] }),
     ],
@@ -228,7 +274,13 @@ describe('priced by the kilometre', () => {
   it('charges an idle stop whatever the waiting was said to cost', () => {
     const result = calculateTrip({
       ...trip,
-      segments: [makeIdle({ id: 'i1', cost: fromMajor(120), occupantIds: ['ann', 'bo', 'cy'] })],
+      lines: [
+        makeStop({
+          id: 'i1',
+          charge: { mode: 'money', amount: fromMajor(120) },
+          occupantIds: ['ann', 'bo', 'cy'],
+        }),
+      ],
     })
     expect(toMajor(result.fuelTotal)).toBe(120)
     expect(toMajor(result.people[0]!.fuelShare)).toBe(40)
@@ -237,7 +289,7 @@ describe('priced by the kilometre', () => {
   it('costs nothing for an idle stop with no amount on it', () => {
     const result = calculateTrip({
       ...trip,
-      segments: [makeIdle({ id: 'i1', energy: 10, occupantIds: ['ann'] })],
+      lines: [makeStop({ id: 'i1', energy: 10, occupantIds: ['ann'] })],
     })
     expect(result.fuelTotal).toBe(0)
   })
@@ -254,7 +306,7 @@ describe('priced by the kilometre', () => {
     const awkward = calculateTrip({
       ...trip,
       pricing: { mode: 'per-km', ratePerKm: fromMajor(3.33) },
-      segments: [
+      lines: [
         makeDrive({ id: 'd1', distanceKm: 33.3, occupantIds: ['ann', 'bo', 'cy'] }),
         makeDrive({ id: 'd2', distanceKm: 77.7, occupantIds: ['ann', 'cy'] }),
       ],
@@ -267,7 +319,7 @@ describe('priced by the kilometre', () => {
 describe('wear and tear, charged by the kilometre', () => {
   const trip = makeTrip({
     maintenancePerKm: fromMajor(2),
-    segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
+    lines: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
   })
 
   it('adds to the fuel rather than replacing it', () => {
@@ -288,7 +340,7 @@ describe('wear and tear, charged by the kilometre', () => {
     const lopsided = calculateTrip(
       makeTrip({
         maintenancePerKm: fromMajor(1),
-        segments: [
+        lines: [
           makeDrive({ id: 'd1', distanceKm: 100, consumptionPer100Km: 20, occupantIds: ['ann'] }),
           makeDrive({ id: 'd2', distanceKm: 100, consumptionPer100Km: 5, occupantIds: ['bo'] }),
         ],
@@ -308,7 +360,7 @@ describe('wear and tear, charged by the kilometre', () => {
     const result = calculateTrip(
       makeTrip({
         maintenancePerKm: fromMajor(2),
-        segments: [makeIdle({ energy: 10, occupantIds: ['ann'] })],
+        lines: [makeStop({ energy: 10, occupantIds: ['ann'] })],
       }),
     )
     expect(result.maintenanceTotal).toBe(0)
@@ -318,7 +370,17 @@ describe('wear and tear, charged by the kilometre', () => {
     const result = calculateTrip({
       ...trip,
       pricing: { mode: 'from-receipts' },
-      receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(430) }],
+      lines: [
+        ...trip.lines,
+        {
+          kind: 'buy',
+          funds: 'fuel',
+          allocation: { type: 'even' },
+          id: 'r1',
+          label: 'Fuel',
+          amount: fromMajor(430),
+        },
+      ],
     })
 
     // The receipts covered the fuel exactly; the upkeep is charged on top and
@@ -343,7 +405,7 @@ describe('wear and tear, charged by the kilometre', () => {
         pricing: { mode: 'fixed-price', pricePerUnit: 0 },
         consumptionPer100Km: 0,
         maintenancePerKm: fromMajor(2),
-        segments: [makeDrive({ distanceKm: 100, occupantIds: [] })],
+        lines: [makeDrive({ distanceKm: 100, occupantIds: [] })],
       }),
     )
     expect(result.warnings.some((warning) => warning.includes('nobody assigned'))).toBe(true)
@@ -356,8 +418,18 @@ describe('money somebody other than the driver put in', () => {
     const result = calculateTrip(
       makeTrip({
         pricing: { mode: 'fixed-price', pricePerUnit: fromMajor(40) },
-        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
-        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400), paidBy: 'bo' }],
+        lines: [
+          makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] }),
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r1',
+            label: 'Fuel',
+            amount: fromMajor(400),
+            paidBy: 'bo',
+          },
+        ],
       }),
     )
 
@@ -370,8 +442,17 @@ describe('money somebody other than the driver put in', () => {
   it('leaves an unmarked receipt with the driver', () => {
     const result = calculateTrip(
       makeTrip({
-        segments: [makeDrive({ occupantIds: ['ann', 'bo'] })],
-        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400) }],
+        lines: [
+          makeDrive({ occupantIds: ['ann', 'bo'] }),
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r1',
+            label: 'Fuel',
+            amount: fromMajor(400),
+          },
+        ],
       }),
     )
 
@@ -381,9 +462,17 @@ describe('money somebody other than the driver put in', () => {
   it('counts a toll against whoever put it on their card', () => {
     const result = calculateTrip(
       makeTrip({
-        segments: [makeDrive({ occupantIds: ['ann', 'bo'] })],
-        overheadCosts: [
-          { id: 'o1', label: 'Toll', amount: fromMajor(300), allocation: { type: 'even' }, paidBy: 'cy' },
+        lines: [
+          makeDrive({ occupantIds: ['ann', 'bo'] }),
+          {
+            kind: 'buy',
+            funds: 'people',
+            id: 'o1',
+            label: 'Toll',
+            amount: fromMajor(300),
+            allocation: { type: 'even' },
+            paidBy: 'cy',
+          },
         ],
       }),
     )
@@ -394,8 +483,18 @@ describe('money somebody other than the driver put in', () => {
   it('ignores a payer who is not on the trip, so the money is not lost', () => {
     const result = calculateTrip(
       makeTrip({
-        segments: [makeDrive({ occupantIds: ['ann', 'bo'] })],
-        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400), paidBy: 'nobody' }],
+        lines: [
+          makeDrive({ occupantIds: ['ann', 'bo'] }),
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r1',
+            label: 'Fuel',
+            amount: fromMajor(400),
+            paidBy: 'nobody',
+          },
+        ],
       }),
     )
 
@@ -407,8 +506,18 @@ describe('money somebody other than the driver put in', () => {
     const result = calculateTrip(
       makeTrip({
         pricing: { mode: 'from-receipts' },
-        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
-        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400), paidBy: 'bo' }],
+        lines: [
+          makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] }),
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r1',
+            label: 'Fuel',
+            amount: fromMajor(400),
+            paidBy: 'bo',
+          },
+        ],
       }),
     )
 
@@ -426,10 +535,26 @@ describe('money somebody other than the driver put in', () => {
     const result = calculateTrip(
       makeTrip({
         pricing: { mode: 'from-receipts' },
-        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] })],
-        receipts: [
-          { id: 'r1', label: 'Fuel', amount: fromMajor(400), paidBy: 'bo' },
-          { id: 'r2', label: 'More fuel', amount: fromMajor(101), paidBy: 'cy' },
+        lines: [
+          makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] }),
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r1',
+            label: 'Fuel',
+            amount: fromMajor(400),
+            paidBy: 'bo',
+          },
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r2',
+            label: 'More fuel',
+            amount: fromMajor(101),
+            paidBy: 'cy',
+          },
         ],
       }),
     )
@@ -445,10 +570,25 @@ describe('what the driver actually collects', () => {
     const result = calculateTrip(
       makeTrip({
         pricing: { mode: 'from-receipts' },
-        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] })],
-        receipts: [
-          { id: 'r1', label: 'Fuel', amount: fromMajor(300) },
-          { id: 'r2', label: 'Second tank', amount: fromMajor(600), paidBy: 'bo' },
+        lines: [
+          makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] }),
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r1',
+            label: 'Fuel',
+            amount: fromMajor(300),
+          },
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r2',
+            label: 'Second tank',
+            amount: fromMajor(600),
+            paidBy: 'bo',
+          },
         ],
       }),
     )
@@ -462,8 +602,17 @@ describe('what the driver actually collects', () => {
     const result = calculateTrip(
       makeTrip({
         pricing: { mode: 'from-receipts' },
-        segments: [makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] })],
-        receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(400) }],
+        lines: [
+          makeDrive({ distanceKm: 100, occupantIds: ['ann', 'bo'] }),
+          {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            id: 'r1',
+            label: 'Fuel',
+            amount: fromMajor(400),
+          },
+        ],
       }),
     )
 

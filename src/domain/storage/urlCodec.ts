@@ -35,12 +35,7 @@ export function buildCopyUrl(origin: string, trip: Trip): string {
  * the working, with no way to change any of it. The key rides in the fragment
  * so it stays out of server logs and Referer headers.
  */
-export function buildViewUrl(
-  origin: string,
-  tripId: string,
-  viewKey: string,
-  personId = '',
-): string {
+export function buildViewUrl(origin: string, tripId: string, viewKey: string, personId = ''): string {
   const who = personId ? `.${personId}` : ''
   return `${base(origin)}/view/${encodeURIComponent(tripId)}#${viewKey}${who}`
 }

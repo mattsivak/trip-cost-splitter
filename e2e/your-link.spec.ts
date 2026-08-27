@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { addDrive, addPeople, addPurchase, everyoneAboard, goTo, openDemo, paidBy } from './support/trip'
 
 /**
  * The page your friends get.
@@ -18,11 +19,8 @@ async function stubPrice(page: Page) {
 
 /** The example trip, published, with the handle set so there are pay buttons. */
 async function publish(page: Page) {
-  await stubPrice(page)
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Open the example trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
+  await openDemo(page)
+  await goTo(page, 'Settle up')
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
@@ -106,26 +104,18 @@ test('somebody who is owed money is told that, not asked to pay', async ({ page 
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
 
-  for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name', { exact: true }).fill(name)
-    await page.getByRole('button', { name: 'Add person' }).click()
-  }
-  await page.getByRole('button', { name: 'Add a drive' }).click()
-  await page.getByLabel('Distance km').fill('100')
-  await page.getByRole('button', { name: 'Everyone', exact: true }).click()
-  await page.getByText('Price from the receipts').click()
+  await addPeople(page, ['Matthew', 'Janca'])
+  await addDrive(page, 'A', 'B', '100')
+  await everyoneAboard(page)
 
-  await page.getByRole('button', { name: 'Add an expense' }).click()
-  const row = page.locator('.expense').last()
-  await row.getByLabel('What it was for').fill('The tank')
-  await row.getByLabel('Amount').fill('600')
-  await row
-    .getByRole('button', { name: /Fuel for the whole trip|Split evenly|Set for each|Charged to/ })
-    .click()
-  await row.locator('.expense__payers label.toggle').filter({ hasText: 'Janca' }).click()
+  await goTo(page, 'Route')
+  await page.locator('.pricing').getByText('From the receipts').click()
+  await addPurchase(page, 'The tank', '600', true)
+  await paidBy(page, 'The tank', 'Janca')
 
+  await goTo(page, 'Settle up')
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',

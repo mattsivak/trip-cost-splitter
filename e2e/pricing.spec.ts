@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { goTo } from './support/trip'
 
 /**
  * The pricing endpoint is stubbed throughout: these tests are about what the
@@ -29,19 +30,21 @@ test('a new trip is priced per unit, prefilled from the local pump price', async
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await goTo(page, 'Route')
 
-  // The price is settable in step 1, next to the consumption figure it belongs with.
+  // The price sits with the route, since it is what prices every drive on it.
   await expect(page.getByLabel('Kč per L')).toHaveValue('40.95')
   await expect(page.getByText('Local pump price · Czech Republic · petrol')).toBeVisible()
   await expect(page.getByLabel('Kč per L')).toHaveValue('40.95')
 })
 
-test('the same control appears in step 1 and step 4, and they stay in step', async ({ page }) => {
+test('the price is set on the route, where the drives can see it', async ({ page }) => {
   await stubLocalPrice(page, czechPetrol)
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
+  await goTo(page, 'Route')
   await page.getByLabel('Kč per L').fill('37.5')
   await expect(page.getByLabel('Kč per L')).toHaveValue('37.5')
 })
@@ -51,6 +54,7 @@ test('typing over the price drops the claim that it came from the feed', async (
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
+  await goTo(page, 'Route')
   await expect(page.getByText('Local pump price · Czech Republic')).toBeVisible()
 
   await page.getByLabel('Kč per L').fill('37.5')
@@ -62,7 +66,8 @@ test('a new trip still opens when the price lookup finds nothing', async ({ page
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await goTo(page, 'Route')
 
   await expect(page.getByLabel('Kč per L')).toHaveValue('0')
 })
@@ -72,7 +77,8 @@ test('a new trip still opens when the price lookup fails outright', async ({ pag
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await goTo(page, 'Route')
 })
 
 test('choosing electric switches the whole trip to kWh', async ({ page }) => {
@@ -80,6 +86,7 @@ test('choosing electric switches the whole trip to kWh', async ({ page }) => {
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
+  await goTo(page, 'Route')
 
   await stubLocalPrice(page, { price: null, country: 'CZ', reason: 'no-national-price' })
   await page.getByLabel('Runs on').selectOption('electric')
@@ -94,6 +101,7 @@ test('switching to diesel re-prices the trip', async ({ page }) => {
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
+  await goTo(page, 'Route')
 
   await stubLocalPrice(page, {
     ...czechPetrol,
@@ -110,6 +118,7 @@ test('an empty trip is not scolded about receipts it does not have', async ({ pa
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
+  await goTo(page, 'Route')
 
   await expect(page.getByText('larger than the receipts on file')).toHaveCount(0)
 })

@@ -1,6 +1,6 @@
 import { fromMajor } from '../money/money'
 import { slugify } from '../routing/routeToSegments'
-import type { DriveSegment, IdleSegment, Person, Trip } from './types'
+import type { BuyLine, DriveLine, Person, StopLine, Trip } from './types'
 
 /** Ids only need to be unique within one trip, not globally meaningful. */
 export function createId(prefix: string): string {
@@ -34,9 +34,7 @@ export function createTrip(overrides: Partial<Trip> = {}): Trip {
     driverId: null,
     people: [],
     routePoints: [],
-    segments: [],
-    overheadCosts: [],
-    receipts: [],
+    lines: [],
     rounding: 'nearest',
     paidAt: {},
     ...overrides,
@@ -47,7 +45,7 @@ export function createPerson(name: string): Person {
   return { id: createId(slugify(name)), name: name.trim() }
 }
 
-export function createDrive(from: string, to: string, overrides: Partial<DriveSegment> = {}): DriveSegment {
+export function createDrive(from: string, to: string, overrides: Partial<DriveLine> = {}): DriveLine {
   return {
     kind: 'drive',
     id: createId('drive'),
@@ -61,10 +59,10 @@ export function createDrive(from: string, to: string, overrides: Partial<DriveSe
   }
 }
 
-export function createIdle(location = '', overrides: Partial<IdleSegment> = {}): IdleSegment {
+export function createStop(location = '', overrides: Partial<StopLine> = {}): StopLine {
   return {
-    kind: 'idle',
-    id: createId('idle'),
+    kind: 'stop',
+    id: createId('stop'),
     label: location ? `Waiting at ${location}` : 'Waiting',
     location,
     energy: 0,
@@ -77,15 +75,17 @@ export function driveLabel(from: string, to: string): string {
   return `${from.trim() || 'Start'} → ${to.trim() || 'End'}`
 }
 
-export function createOverhead(label = 'Tolls', amountMajor = 0) {
+/**
+ * Money spent. `funds` is the whole difference between a tank of fuel and a
+ * round of coffees: the first pays for the driving, the second is shared out.
+ */
+export function createBuy(label = '', amountMajor = 0, funds: BuyLine['funds'] = 'fuel'): BuyLine {
   return {
-    id: createId('overhead'),
+    kind: 'buy',
+    id: createId('buy'),
     label,
     amount: fromMajor(amountMajor),
+    funds,
     allocation: { type: 'even' as const },
   }
-}
-
-export function createReceipt(label = 'Fuel', amountMajor = 0) {
-  return { id: createId('receipt'), label, amount: fromMajor(amountMajor) }
 }

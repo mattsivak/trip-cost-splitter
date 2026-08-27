@@ -1,5 +1,5 @@
 import { slugify } from '../routing/routeToSegments'
-import type { DriveSegment, Segment } from './types'
+import type { DriveLine, Segment } from './types'
 
 /**
  * Put idle stops back where they happened after the drives are replaced.
@@ -17,7 +17,7 @@ import type { DriveSegment, Segment } from './types'
  * Olomouc". When no matching arrival survives in the new route, the stop falls
  * back to the same ordinal position, and failing that to the end.
  */
-export function reanchorIdleStops(previous: readonly Segment[], drives: readonly DriveSegment[]): Segment[] {
+export function reanchorIdleStops(previous: readonly Segment[], drives: readonly DriveLine[]): Segment[] {
   const placements = describePlacements(previous)
 
   /** Index into `drives` that each stop follows; -1 means before the first drive. */
@@ -72,7 +72,7 @@ function describePlacements(segments: readonly Segment[]): Placement[] {
   return placements
 }
 
-function resolveAnchor(placement: Placement, drives: readonly DriveSegment[]): number {
+function resolveAnchor(placement: Placement, drives: readonly DriveLine[]): number {
   if (placement.arrivedAt === null) return -1
 
   let seen = 0

@@ -49,7 +49,7 @@ test('nothing on the page is left unreadable in dark mode', async ({ page }) => 
   await page.goto('/')
   await page.getByRole('button', { name: 'Dark' }).click()
   await page.getByRole('button', { name: 'Open the example trip' }).click()
-  await page.getByRole('heading', { name: 'Where the car went' }).waitFor()
+  await page.getByRole('heading', { name: 'Who came along' }).waitFor()
 
   // Every painted background must come from the token set, not from a colour
   // that only made sense on paper.

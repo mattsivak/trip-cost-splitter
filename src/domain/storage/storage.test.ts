@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { fromMajor } from '../money/money'
 import { createTrip } from '../trip/factories'
-import { makeDrive, makeIdle, makeTrip } from '../trip/testing'
+import { makeDrive, makeStop, makeTrip } from '../trip/testing'
 import { createLocalTripStore, createMemoryStorage, TRIP_KEY_PREFIX } from './localTripStore'
+import { bought, ridden } from '../trip/energy'
 import { parseTrip } from './serialization'
 import {
   buildCopyUrl,
@@ -21,7 +22,7 @@ describe('parseTrip', () => {
   })
 
   it('round-trips a full trip unchanged', () => {
-    const trip = makeTrip({ segments: [makeDrive(), makeIdle({ occupantIds: ['ann', 'bo'] })] })
+    const trip = makeTrip({ lines: [makeDrive(), makeStop({ occupantIds: ['ann', 'bo'] })] })
     expect(parseTrip(JSON.parse(JSON.stringify(trip)))).toEqual(trip)
   })
 
@@ -37,9 +38,9 @@ describe('parseTrip', () => {
   it('drops occupants who refer to people that do not exist', () => {
     const trip = parseTrip({
       people: [{ id: 'ann', name: 'Ann' }],
-      segments: [{ kind: 'drive', id: 'd1', occupantIds: ['ann', 'ghost', 42] }],
+      lines: [{ kind: 'drive', id: 'd1', occupantIds: ['ann', 'ghost', 42] }],
     })
-    expect(trip?.segments[0]?.occupantIds).toEqual(['ann'])
+    expect(ridden(trip?.lines ?? [])[0]?.occupantIds).toEqual(['ann'])
   })
 
   it('clears a driver who is not on the trip', () => {
@@ -47,25 +48,29 @@ describe('parseTrip', () => {
   })
 
   it('discards people without a name and segments that are not objects', () => {
-    const trip = parseTrip({ people: [{ id: 'a' }, { id: 'b', name: 'Bo' }], segments: ['nope', 7] })
+    const trip = parseTrip({ people: [{ id: 'a' }, { id: 'b', name: 'Bo' }], lines: ['nope', 7] })
     expect(trip?.people).toEqual([{ id: 'b', name: 'Bo' }])
-    expect(trip?.segments).toEqual([])
+    expect(ridden(trip?.lines ?? [])).toEqual([])
   })
 
   it('replaces non-numeric amounts rather than producing NaN', () => {
     const trip = parseTrip({
       consumptionPer100Km: 'lots',
-      receipts: [{ id: 'r1', label: 'Fuel', amount: 'much' }],
+      lines: [
+        { kind: 'buy', funds: 'fuel', allocation: { type: 'even' }, id: 'r1', label: 'Fuel', amount: 'much' },
+      ],
     })
     expect(trip?.consumptionPer100Km).toBe(7)
-    expect(trip?.receipts[0]?.amount).toBe(0)
+    expect(bought(trip?.lines ?? [])[0]?.amount).toBe(0)
   })
 
   it('falls back to an even split for an unrecognised allocation', () => {
     const trip = parseTrip({
-      overheadCosts: [{ id: 'o1', label: 'Tolls', amount: 100, allocation: { type: 'wat' } }],
+      lines: [
+        { kind: 'buy', funds: 'people', id: 'o1', label: 'Tolls', amount: 100, allocation: { type: 'wat' } },
+      ],
     })
-    expect(trip?.overheadCosts[0]?.allocation).toEqual({ type: 'even' })
+    expect(bought(trip?.lines ?? [])[0]?.allocation).toEqual({ type: 'even' })
   })
 })
 
@@ -133,8 +138,17 @@ describe('createLocalTripStore', () => {
 describe('url sharing', () => {
   const trip = makeTrip({
     title: 'Šumperk → Kunčice',
-    segments: [makeDrive({ occupantIds: ['ann', 'bo'] })],
-    receipts: [{ id: 'r1', label: 'Nafta', amount: fromMajor(6033.73) }],
+    lines: [
+      makeDrive({ occupantIds: ['ann', 'bo'] }),
+      {
+        kind: 'buy',
+        funds: 'fuel',
+        allocation: { type: 'even' },
+        id: 'r1',
+        label: 'Nafta',
+        amount: fromMajor(6033.73),
+      },
+    ],
   })
 
   it('round-trips a trip through a token', () => {
@@ -183,7 +197,7 @@ describe('trips saved before the app counted anything but litres', () => {
       defaultConsumptionLPer100Km: 9.5,
       pricing: { mode: 'fixed-price', pricePerLiter: 4300 },
       people: [{ id: 'ann', name: 'Ann' }],
-      segments: [
+      lines: [
         {
           kind: 'drive',
           id: 'd1',
@@ -202,16 +216,16 @@ describe('trips saved before the app counted anything but litres', () => {
           directLiters: 4,
           occupantIds: ['ann'],
         },
-        { kind: 'idle', id: 'i1', liters: 20, occupantIds: ['ann'] },
+        { kind: 'stop', id: 'i1', liters: 20, occupantIds: ['ann'] },
       ],
     }
 
     const trip = parseTrip(legacy)
     expect(trip?.consumptionPer100Km).toBe(9.5)
     expect(trip?.pricing).toEqual({ mode: 'fixed-price', pricePerUnit: 4300 })
-    expect(trip?.segments[0]).toMatchObject({ consumptionPer100Km: 12 })
-    expect(trip?.segments[1]).toMatchObject({ directEnergy: 4 })
-    expect(trip?.segments[2]).toMatchObject({ energy: 20 })
+    expect(ridden(trip?.lines ?? [])[0]).toMatchObject({ consumptionPer100Km: 12 })
+    expect(ridden(trip?.lines ?? [])[1]).toMatchObject({ directEnergy: 4 })
+    expect(ridden(trip?.lines ?? [])[2]).toMatchObject({ energy: 20 })
   })
 
   it('assumes petrol, since a trip saved back then had no energy kind', () => {
@@ -223,10 +237,10 @@ describe('trips saved before the app counted anything but litres', () => {
       consumptionPer100Km: 18,
       defaultConsumptionLPer100Km: 9.5,
       people: [{ id: 'a', name: 'A' }],
-      segments: [{ kind: 'idle', id: 'i1', energy: 30, liters: 20, occupantIds: [] }],
+      lines: [{ kind: 'stop', id: 'i1', energy: 30, liters: 20, occupantIds: [] }],
     })
     expect(trip?.consumptionPer100Km).toBe(18)
-    expect(trip?.segments[0]).toMatchObject({ energy: 30 })
+    expect(ridden(trip?.lines ?? [])[0]).toMatchObject({ energy: 30 })
   })
 
   it('keeps an energy kind it does recognise', () => {
@@ -240,7 +254,7 @@ describe('a trip priced by the kilometre', () => {
     const trip = makeTrip({
       pricing: { mode: 'per-km', ratePerKm: 400 },
       maintenancePerKm: 200,
-      segments: [makeIdle({ cost: 12000, occupantIds: ['ann'] })],
+      lines: [makeStop({ charge: { mode: 'money', amount: 12000 }, occupantIds: ['ann'] })],
     })
     expect(parseTrip(JSON.parse(JSON.stringify(trip)))).toEqual(trip)
   })
@@ -265,14 +279,16 @@ describe('a trip priced by the kilometre', () => {
   it('leaves an idle stop without a cost alone, rather than inventing a zero', () => {
     const trip = parseTrip({
       people: [{ id: 'ann', name: 'Ann' }],
-      segments: [{ kind: 'idle', id: 'i1', energy: 5, occupantIds: ['ann'] }],
+      lines: [{ kind: 'stop', id: 'i1', energy: 5, occupantIds: ['ann'] }],
     })
-    expect(trip?.segments[0]).not.toHaveProperty('cost')
+    expect(ridden(trip?.lines ?? [])[0]).not.toHaveProperty('cost')
   })
 })
 
 describe('amounts paid in another currency', () => {
   const eurReceipt = {
+    kind: 'buy' as const,
+    funds: 'fuel' as const,
     id: 'receipt-1',
     label: 'Tankstelle Kufstein',
     amount: 999999,
@@ -288,20 +304,22 @@ describe('amounts paid in another currency', () => {
   it('re-derives the converted amount rather than trusting the stored one', () => {
     // The file claims 9 999,99 Kč; the original and the rate say otherwise,
     // and the pair is the truth.
-    const trip = parseTrip({ receipts: [eurReceipt] })
-    expect(trip?.receipts[0]?.amount).toBe(Math.round(6240 * 24.21))
-    expect(trip?.receipts[0]?.foreign).toMatchObject({ currency: 'EUR', rate: 24.21 })
+    const trip = parseTrip({ lines: [eurReceipt] })
+    expect(bought(trip?.lines ?? [])[0]?.amount).toBe(Math.round(6240 * 24.21))
+    expect(bought(trip?.lines ?? [])[0]?.foreign).toMatchObject({ currency: 'EUR', rate: 24.21 })
   })
 
   it('keeps which day the rate was for', () => {
-    const trip = parseTrip({ receipts: [eurReceipt] })
-    expect(trip?.receipts[0]?.foreign?.source?.date).toBe('2026-08-14')
+    const trip = parseTrip({ lines: [eurReceipt] })
+    expect(bought(trip?.lines ?? [])[0]?.foreign?.source?.date).toBe('2026-08-14')
   })
 
   it('does the same for an overhead cost', () => {
     const trip = parseTrip({
-      overheadCosts: [
+      lines: [
         {
+          kind: 'buy',
+          funds: 'people',
           id: 'o1',
           label: 'Austria vignette',
           amount: 0,
@@ -309,16 +327,31 @@ describe('amounts paid in another currency', () => {
         },
       ],
     })
-    expect(trip?.overheadCosts[0]?.amount).toBe(Math.round(1240 * 24.21))
+    expect(bought(trip?.lines ?? [])[0]?.amount).toBe(Math.round(1240 * 24.21))
   })
 
   it('normalises the currency code', () => {
     const trip = parseTrip({
-      receipts: [
-        { id: 'r', label: 'x', amount: 0, foreign: { currency: 'eur', originalAmount: 100, rate: 2 } },
+      lines: [
+        {
+          kind: 'buy',
+          funds: 'fuel',
+          allocation: { type: 'even' },
+          id: 'r',
+          label: 'x',
+          amount: 0,
+          foreign: {
+            kind: 'buy',
+            funds: 'fuel',
+            allocation: { type: 'even' },
+            currency: 'eur',
+            originalAmount: 100,
+            rate: 2,
+          },
+        },
       ],
     })
-    expect(trip?.receipts[0]?.foreign?.currency).toBe('EUR')
+    expect(bought(trip?.lines ?? [])[0]?.foreign?.currency).toBe('EUR')
   })
 
   it.each([
@@ -328,21 +361,44 @@ describe('amounts paid in another currency', () => {
     ['a currency that is not a code', { currency: 'Kč', originalAmount: 6240, rate: 24 }],
     ['nothing usable at all', 'euros'],
   ])('drops a foreign block with %s and keeps the stored amount', (_case, foreign) => {
-    const trip = parseTrip({ receipts: [{ id: 'r', label: 'x', amount: 5000, foreign }] })
-    expect(trip?.receipts[0]?.foreign).toBeUndefined()
-    expect(trip?.receipts[0]?.amount).toBe(5000)
+    const trip = parseTrip({
+      lines: [
+        {
+          kind: 'buy',
+          funds: 'fuel',
+          allocation: { type: 'even' },
+          id: 'r',
+          label: 'x',
+          amount: 5000,
+          foreign,
+        },
+      ],
+    })
+    expect(bought(trip?.lines ?? [])[0]?.foreign).toBeUndefined()
+    expect(bought(trip?.lines ?? [])[0]?.amount).toBe(5000)
   })
 
   it('leaves a trip with no foreign amounts exactly as it was', () => {
-    const trip = parseTrip({ receipts: [{ id: 'r', label: 'Benzina', amount: 124000 }] })
-    expect(trip?.receipts[0]?.amount).toBe(124000)
-    expect(trip?.receipts[0]?.foreign).toBeUndefined()
+    const trip = parseTrip({
+      lines: [
+        {
+          kind: 'buy',
+          funds: 'fuel',
+          allocation: { type: 'even' },
+          id: 'r',
+          label: 'Benzina',
+          amount: 124000,
+        },
+      ],
+    })
+    expect(bought(trip?.lines ?? [])[0]?.amount).toBe(124000)
+    expect(bought(trip?.lines ?? [])[0]?.foreign).toBeUndefined()
   })
 
   it('round-trips through JSON unchanged', () => {
-    const once = parseTrip({ receipts: [eurReceipt] })
+    const once = parseTrip({ lines: [eurReceipt] })
     const twice = parseTrip(JSON.parse(JSON.stringify(once)))
-    expect(twice?.receipts).toEqual(once?.receipts)
+    expect(bought(twice?.lines ?? [])).toEqual(bought(once?.lines ?? []))
   })
 })
 
@@ -359,27 +415,52 @@ describe('who paid for a receipt or a cost', () => {
   it('keeps the payer through a save and a load', () => {
     const trip = parseTrip({
       ...base,
-      receipts: [{ id: 'r1', label: 'Fuel', amount: 40000, paidBy: 'bo' }],
-      overheadCosts: [{ id: 'o1', label: 'Toll', amount: 30000, paidBy: 'bo' }],
+      lines: [
+        {
+          kind: 'buy',
+          funds: 'fuel',
+          allocation: { type: 'even' },
+          id: 'r1',
+          label: 'Fuel',
+          amount: 40000,
+          paidBy: 'bo',
+        },
+        { kind: 'buy', funds: 'people', id: 'o1', label: 'Toll', amount: 30000, paidBy: 'bo' },
+      ],
     })
 
-    expect(trip?.receipts[0]?.paidBy).toBe('bo')
-    expect(trip?.overheadCosts[0]?.paidBy).toBe('bo')
+    expect(bought(trip?.lines ?? [])[0]?.paidBy).toBe('bo')
+    expect(bought(trip?.lines ?? [])[0]?.paidBy).toBe('bo')
   })
 
   /** A payer who has been removed since is dropped, and means the driver again. */
   it('drops a payer who is not on the trip', () => {
     const trip = parseTrip({
       ...base,
-      receipts: [{ id: 'r1', label: 'Fuel', amount: 40000, paidBy: 'gone' }],
+      lines: [
+        {
+          kind: 'buy',
+          funds: 'fuel',
+          allocation: { type: 'even' },
+          id: 'r1',
+          label: 'Fuel',
+          amount: 40000,
+          paidBy: 'gone',
+        },
+      ],
     })
 
-    expect(trip?.receipts[0]?.paidBy).toBeUndefined()
+    expect(bought(trip?.lines ?? [])[0]?.paidBy).toBeUndefined()
   })
 
   it('leaves a receipt with no payer alone', () => {
-    const trip = parseTrip({ ...base, receipts: [{ id: 'r1', label: 'Fuel', amount: 40000 }] })
-    expect(trip?.receipts[0]).not.toHaveProperty('paidBy')
+    const trip = parseTrip({
+      ...base,
+      lines: [
+        { kind: 'buy', funds: 'fuel', allocation: { type: 'even' }, id: 'r1', label: 'Fuel', amount: 40000 },
+      ],
+    })
+    expect(bought(trip?.lines ?? [])[0]).not.toHaveProperty('paidBy')
   })
 })
 
@@ -391,15 +472,20 @@ describe('an expense of either kind', () => {
   it('keeps the date on an extra, not only on a receipt', () => {
     const trip = parseTrip({
       ...base,
-      overheadCosts: [{ id: 'o1', label: 'Vignette', amount: 30000, date: '2026-08-14' }],
+      lines: [
+        { kind: 'buy', funds: 'people', id: 'o1', label: 'Vignette', amount: 30000, date: '2026-08-14' },
+      ],
     })
 
-    expect(trip?.overheadCosts[0]?.date).toBe('2026-08-14')
+    expect(bought(trip?.lines ?? [])[0]?.date).toBe('2026-08-14')
   })
 
   it('leaves an undated extra alone', () => {
-    const trip = parseTrip({ ...base, overheadCosts: [{ id: 'o1', label: 'Vignette', amount: 30000 }] })
-    expect(trip?.overheadCosts[0]).not.toHaveProperty('date')
+    const trip = parseTrip({
+      ...base,
+      lines: [{ kind: 'buy', funds: 'people', id: 'o1', label: 'Vignette', amount: 30000 }],
+    })
+    expect(bought(trip?.lines ?? [])[0]).not.toHaveProperty('date')
   })
 })
 
@@ -424,5 +510,79 @@ describe('a payment link that knows who it is for', () => {
   it('keeps the key whole when there is no person on the end', () => {
     expect(readViewFragment('#abc.').personId).toBe('')
     expect(readViewFragment('#abc.').key).toBe('abc')
+  })
+})
+
+describe('a trip written before it was a ledger', () => {
+  const legacy = {
+    id: 'trip-1',
+    title: 'Alps',
+    people: [
+      { id: 'ann', name: 'Ann' },
+      { id: 'bo', name: 'Bo' },
+    ],
+    driverId: 'ann',
+    segments: [
+      {
+        kind: 'drive',
+        id: 'd1',
+        label: 'A → B',
+        from: 'A',
+        to: 'B',
+        distanceKm: 100,
+        occupantIds: ['ann', 'bo'],
+      },
+      { kind: 'idle', id: 'i1', label: 'Waiting', location: 'B', energy: 4, occupantIds: ['ann'] },
+    ],
+    receipts: [{ id: 'r1', label: 'Fuel', amount: 40000, paidBy: 'bo', date: '2026-08-14' }],
+    overheadCosts: [{ id: 'o1', label: 'Toll', amount: 30000, allocation: { type: 'even' } }],
+  }
+
+  it('reads the drives, the stops and the money as one ordered list', () => {
+    const trip = parseTrip(legacy)
+
+    expect(trip?.lines.map((line) => [line.kind, line.id])).toEqual([
+      ['drive', 'd1'],
+      ['stop', 'i1'],
+      ['buy', 'r1'],
+      ['buy', 'o1'],
+    ])
+  })
+
+  it('keeps a receipt as money that pays for the driving', () => {
+    const trip = parseTrip(legacy)
+    const receipt = trip?.lines.find((line) => line.id === 'r1')
+
+    expect(receipt).toMatchObject({ kind: 'buy', funds: 'fuel', amount: 40000, paidBy: 'bo' })
+  })
+
+  it('keeps a toll as money shared between people', () => {
+    const trip = parseTrip(legacy)
+    const toll = trip?.lines.find((line) => line.id === 'o1')
+
+    expect(toll).toMatchObject({ kind: 'buy', funds: 'people', amount: 30000 })
+  })
+
+  it('keeps who was in the car for each drive', () => {
+    const trip = parseTrip(legacy)
+    const drive = trip?.lines.find((line) => line.id === 'd1')
+
+    expect(drive).toMatchObject({ kind: 'drive', distanceKm: 100, occupantIds: ['ann', 'bo'] })
+  })
+
+  /** Written as lines, read as lines, unchanged. */
+  it('reads a trip that was already a ledger', () => {
+    const trip = parseTrip({
+      id: 'trip-2',
+      title: 'Alps',
+      people: [{ id: 'ann', name: 'Ann' }],
+      driverId: 'ann',
+      lines: [
+        { kind: 'buy', id: 'b1', label: 'Coffee', amount: 12000, funds: 'people' },
+        { kind: 'drive', id: 'd9', label: 'B → C', from: 'B', to: 'C', distanceKm: 50, occupantIds: ['ann'] },
+      ],
+    })
+
+    expect(trip?.lines.map((line) => line.id)).toEqual(['b1', 'd9'])
   })
 })

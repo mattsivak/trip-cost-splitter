@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ridden } from '~/src/domain/trip/energy'
 import { formatEnergy } from '~/src/domain/pricing/energyKind'
 import type { TripResult } from '~/src/domain/trip/result'
 import { formatTripSummary } from '~/src/domain/trip/summary'
@@ -13,14 +14,14 @@ const summary = computed(() => formatTripSummary(props.trip, props.result))
 
 /** What the split was measured from, in the same units the rest of the page uses. */
 function basisFor(segmentId: string): string {
-  const segment = props.trip.segments.find((entry) => entry.id === segmentId)
+  const segment = ridden(props.trip.lines).find((entry) => entry.id === segmentId)
   if (!segment) return ''
   // Priced by the kilometre, litres were never counted, so quoting them as
   // the basis of the split would describe a measurement nobody took.
   if (props.trip.pricing.mode === 'per-km') {
-    return segment.kind === 'idle' ? 'waiting' : formatKm(segment.distanceKm)
+    return segment.kind === 'stop' ? 'waiting' : formatKm(segment.distanceKm)
   }
-  if (segment.kind === 'idle') return `${formatEnergy(segment.energy, props.trip.energyKind)} parked`
+  if (segment.kind === 'stop') return `${formatEnergy(segment.energy, props.trip.energyKind)} parked`
   if (segment.directEnergy !== undefined)
     return `${formatEnergy(segment.directEnergy, props.trip.energyKind)} measured`
   return formatKm(segment.distanceKm)
@@ -92,7 +93,7 @@ async function copy() {
               <td class="is-rowhead">
                 <span class="cell-name">
                   <strong>{{ segment.label }}</strong>
-                  <small>{{ segment.kind === 'idle' ? 'idling' : 'drive' }}</small>
+                  <small>{{ segment.kind === 'stop' ? 'idling' : 'drive' }}</small>
                 </span>
               </td>
               <td class="is-figure" data-label="What it's split on">{{ basisFor(segment.segmentId) }}</td>

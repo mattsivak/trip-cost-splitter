@@ -43,7 +43,7 @@ async function startTrip(page: Page) {
   await stubLocalPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
 }
 
 test('the trip list has nothing to save, and says nothing', async ({ page }) => {

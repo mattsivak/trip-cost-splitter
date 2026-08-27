@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev --host 0.0.0.0",
+    "dev": "nuxt dev --host 0.0.0.0 --no-fork",
     "build": "nuxt build",
     "preview": "node .output/server/index.mjs",
     "generate": "nuxt generate",

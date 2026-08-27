@@ -28,6 +28,6 @@ export function summarize(trip: Trip): TripSummary {
     title: trip.title,
     updatedAt: trip.updatedAt,
     peopleCount: trip.people.length,
-    segmentCount: trip.segments.length,
+    segmentCount: trip.lines.filter((line) => line.kind !== 'buy').length,
   }
 }

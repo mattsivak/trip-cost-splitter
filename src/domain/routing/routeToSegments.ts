@@ -1,4 +1,4 @@
-import type { DriveSegment, PersonId } from '../trip/types'
+import type { DriveLine, PersonId } from '../trip/types'
 import type { RoutePlan } from './types'
 
 /**
@@ -8,9 +8,9 @@ import type { RoutePlan } from './types'
  * can change any distance afterwards, and `distanceSource` records where the
  * number came from so the UI can say so.
  */
-export function routeToSegments(route: RoutePlan, occupantIds: readonly PersonId[] = []): DriveSegment[] {
+export function routeToSegments(route: RoutePlan, occupantIds: readonly PersonId[] = []): DriveLine[] {
   return route.legs.map((leg, index) => {
-    const segment: DriveSegment = {
+    const segment: DriveLine = {
       kind: 'drive',
       id: `leg-${index + 1}-${slugify(leg.fromLabel)}-${slugify(leg.toLabel)}`,
       label: `${leg.fromLabel} → ${leg.toLabel}`,

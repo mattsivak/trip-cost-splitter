@@ -1,23 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
-
-/**
- * A trip is yours because this browser holds its keys. So a question the server
- * never answered must never be read as the answer "gone" — that would throw the
- * keys away over one tunnel, one dead lift, one flaky café wifi.
- */
-
-async function stubPrice(page: Page) {
-  await page.route('**/api/pricing/local**', (route) =>
-    route.fulfill({ json: { price: null, country: null, reason: 'unknown-country' } }),
-  )
-}
+import { goTo, paymentLink, stubPrice } from './support/trip'
 
 /** A saved trip, and the browser back on the trip list. */
 async function savedTrip(page: Page) {
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
 
   await page.getByRole('textbox', { name: 'Trip', exact: true }).fill('Alps')
   await page.waitForResponse(
@@ -68,14 +57,8 @@ test('a shared link that cannot be reached says so, and offers another go', asyn
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-  await page.getByLabel('Your Revolut handle').fill('mattsivak')
-  await page.waitForResponse(
-    (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
-  )
-  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
-  await page.getByRole('button', { name: 'Copy the payment link' }).click()
-  const link = await page.evaluate(() => navigator.clipboard.readText())
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  const link = await paymentLink(page)
 
   await cutTheLine(page)
   await page.goto(link)
@@ -121,7 +104,7 @@ test('every number field asks for the number keyboard', async ({ page }) => {
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
 
   await expect(page.locator('input[type="number"]:not([inputmode])')).toHaveCount(0)
 })
@@ -135,7 +118,8 @@ test('marking somebody paid keeps the keyboard where it was', async ({ page }) =
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
+  await goTo(page, 'Settle up')
   const mark = page.getByRole('button', { name: 'Mark paid' }).first()
   await mark.focus()
   await page.keyboard.press('Enter')

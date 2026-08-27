@@ -8,11 +8,18 @@ const trip = makeTrip({
   title: 'Weekend run',
   pricing: { mode: 'from-receipts' },
   consumptionPer100Km: 10,
-  segments: [
+  lines: [
     makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] }),
     makeDrive({ id: 'd2', distanceKm: 100, occupantIds: ['ann', 'bo'] }),
+    {
+      kind: 'buy',
+      funds: 'fuel',
+      allocation: { type: 'even' },
+      id: 'r1',
+      label: 'Fuel',
+      amount: fromMajor(900),
+    },
   ],
-  receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(900) }],
 })
 
 describe('formatTripSummary', () => {
@@ -39,14 +46,23 @@ describe('formatTripSummary', () => {
   })
 
   it('says so plainly when there is nothing to collect', () => {
-    const solo = makeTrip({ segments: [makeDrive({ occupantIds: ['ann'] })] })
+    const solo = makeTrip({ lines: [makeDrive({ occupantIds: ['ann'] })] })
     expect(formatTripSummary(solo, calculateTrip(solo))).toContain('(nothing to collect)')
   })
 
   it('calls out a shortfall between receipts and the split', () => {
     const underBilled = makeTrip({
-      segments: [makeDrive({ distanceKm: 10, occupantIds: ['ann', 'bo'] })],
-      receipts: [{ id: 'r1', label: 'Fuel', amount: fromMajor(2000) }],
+      lines: [
+        makeDrive({ distanceKm: 10, occupantIds: ['ann', 'bo'] }),
+        {
+          kind: 'buy',
+          funds: 'fuel',
+          allocation: { type: 'even' },
+          id: 'r1',
+          label: 'Fuel',
+          amount: fromMajor(2000),
+        },
+      ],
     })
     expect(formatTripSummary(underBilled, calculateTrip(underBilled))).toContain(
       'more than this split covers',
@@ -81,7 +97,16 @@ describe('formatTripSummary', () => {
     expect(summary).not.toContain('tolls, parking')
     const withTolls = makeTrip({
       ...trip,
-      overheadCosts: [{ id: 'o1', label: 'Tolls', amount: fromMajor(300), allocation: { type: 'even' } }],
+      lines: [
+        {
+          kind: 'buy',
+          funds: 'people',
+          id: 'o1',
+          label: 'Tolls',
+          amount: fromMajor(300),
+          allocation: { type: 'even' },
+        },
+      ],
     })
     expect(formatTripSummary(withTolls, calculateTrip(withTolls))).toContain('tolls, parking')
   })
@@ -92,10 +117,25 @@ describe('when somebody other than the driver paid for something', () => {
     title: 'Weekend run',
     pricing: { mode: 'from-receipts' },
     consumptionPer100Km: 10,
-    segments: [makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] })],
-    receipts: [
-      { id: 'r1', label: 'Fuel', amount: fromMajor(300) },
-      { id: 'r2', label: 'Second tank', amount: fromMajor(600), paidBy: 'bo' },
+    lines: [
+      makeDrive({ id: 'd1', distanceKm: 100, occupantIds: ['ann', 'bo', 'cy'] }),
+      {
+        kind: 'buy',
+        funds: 'fuel',
+        allocation: { type: 'even' },
+        id: 'r1',
+        label: 'Fuel',
+        amount: fromMajor(300),
+      },
+      {
+        kind: 'buy',
+        funds: 'fuel',
+        allocation: { type: 'even' },
+        id: 'r2',
+        label: 'Second tank',
+        amount: fromMajor(600),
+        paidBy: 'bo',
+      },
     ],
   })
   const summary = formatTripSummary(shared, calculateTrip(shared))

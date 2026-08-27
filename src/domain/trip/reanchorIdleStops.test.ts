@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { reanchorIdleStops } from './reanchorIdleStops'
-import type { DriveSegment, IdleSegment, Segment } from './types'
+import type { DriveLine, StopLine, Segment } from './types'
 
-function drive(from: string, to: string): DriveSegment {
+function drive(from: string, to: string): DriveLine {
   return {
     kind: 'drive',
     id: `${from}-${to}`,
@@ -15,11 +15,11 @@ function drive(from: string, to: string): DriveSegment {
   }
 }
 
-function idle(id: string, location = ''): IdleSegment {
-  return { kind: 'idle', id, label: `Waiting at ${location}`, location, energy: 5, occupantIds: [] }
+function idle(id: string, location = ''): StopLine {
+  return { kind: 'stop', id, label: `Waiting at ${location}`, location, energy: 5, occupantIds: [] }
 }
 
-const labels = (segments: Segment[]) => segments.map((segment) => segment.id)
+const labels = (lines: Segment[]) => lines.map((line) => line.id)
 
 describe('reanchorIdleStops', () => {
   it('keeps a stop behind the drive that arrived where it happened', () => {
@@ -54,7 +54,7 @@ describe('reanchorIdleStops', () => {
       drive('Olomouc', 'Vsetín'),
       drive('Vsetín', 'Olomouc'),
     ]
-    const rebuilt = previous.filter((segment): segment is DriveSegment => segment.kind === 'drive')
+    const rebuilt = previous.filter((segment): segment is DriveLine => segment.kind === 'drive')
 
     expect(labels(reanchorIdleStops(previous, rebuilt))).toEqual([
       'Šumperk-Olomouc',
@@ -117,7 +117,7 @@ describe('reanchorIdleStops', () => {
     const result = reanchorIdleStops(previous, rebuilt)
     expect(
       result
-        .filter((segment) => segment.kind === 'idle')
+        .filter((segment) => segment.kind === 'stop')
         .map((segment) => segment.id)
         .sort(),
     ).toEqual(['a', 'b', 'c', 'd'])

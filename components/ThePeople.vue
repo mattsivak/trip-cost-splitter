@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { bought, ridden } from '~/src/domain/trip/energy'
 import { createPerson } from '~/src/domain/trip/factories'
 import type { Trip } from '~/src/domain/trip/types'
 
@@ -21,10 +22,10 @@ function removePerson(personId: string) {
   props.trip.people = props.trip.people.filter((person) => person.id !== personId)
   if (props.trip.driverId === personId) props.trip.driverId = props.trip.people[0]?.id ?? null
 
-  for (const segment of props.trip.segments) {
+  for (const segment of ridden(props.trip.lines)) {
     segment.occupantIds = segment.occupantIds.filter((id) => id !== personId)
   }
-  for (const cost of props.trip.overheadCosts) {
+  for (const cost of bought(props.trip.lines)) {
     if (cost.allocation.type === 'fixed') {
       cost.allocation.amounts = Object.fromEntries(
         Object.entries(cost.allocation.amounts).filter(([id]) => id !== personId),
@@ -36,7 +37,7 @@ function removePerson(personId: string) {
 }
 
 function segmentCount(personId: string): number {
-  return props.trip.segments.filter((segment) => segment.occupantIds.includes(personId)).length
+  return ridden(props.trip.lines).filter((segment) => segment.occupantIds.includes(personId)).length
 }
 </script>
 

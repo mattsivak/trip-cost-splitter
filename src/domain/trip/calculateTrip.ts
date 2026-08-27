@@ -1,6 +1,6 @@
 import { allocate, roundToMajor, sumMoney, type Money } from '../money/money'
 import { unitLabelFor } from '../pricing/energyKind'
-import { costForSegment, distanceForSegment, energyForSegment, totalDistanceKm } from './energy'
+import { costForSegment, distanceForSegment, energyForSegment, ridden, totalDistanceKm } from './energy'
 import { allocateOverhead } from './overhead'
 import type { PersonBreakdown, SegmentBreakdown, TripResult } from './result'
 import type { PersonId, Trip } from './types'
@@ -29,25 +29,49 @@ export function calculateTrip(trip: Trip): TripResult {
 
   const perKm = trip.pricing.mode === 'per-km'
 
+  /**
+   * The ledger, split into the two things it holds: the lines people rode and
+   * the money somebody spent. Their order in the ledger is the order of the
+   * trip, and neither list cares about the other's positions.
+   */
+  const segments = ridden(trip.lines)
+  const purchases = trip.lines.filter((line) => line.kind === 'buy')
+  const fuelBought = purchases.filter((line) => line.funds === 'fuel')
+  const sharedBought = purchases.filter((line) => line.funds === 'people')
+
   // What is being divided, segment by segment. Pricing by the kilometre counts
   // no fuel at all, so the weights are money outright rather than a quantity
   // that money is derived from — `allocate` cannot tell the difference.
-  const segmentEnergy = trip.segments.map((segment) => (perKm ? 0 : energyForSegment(segment, trip)))
+  const segmentEnergy = segments.map((segment) => (perKm ? 0 : energyForSegment(segment, trip)))
   const energyTotal = segmentEnergy.reduce((sum, energy) => sum + energy, 0)
-  const segmentFuelWeight = perKm
-    ? trip.segments.map((segment) => costForSegment(segment, ratePerKm(trip)))
-    : segmentEnergy
-  const segmentDistance = trip.segments.map(distanceForSegment)
+
+  /**
+   * A line priced by hand answers for itself: it is money outright, and it must
+   * not also be valued out of the pool, or the same kilometres would be charged
+   * twice. So the ledger splits in two — the lines the trip prices, and the
+   * lines that price themselves — and each is spread over its own people.
+   */
+  const ownMoney = segments.map((segment) => (segment.charge ? costForSegment(segment, ratePerKm(trip)) : 0))
+  const pooledEnergy = segments.map((segment, index) => (segment.charge ? 0 : (segmentEnergy[index] ?? 0)))
+  const pooledEnergyTotal = pooledEnergy.reduce((sum, energy) => sum + energy, 0)
+
+  const segmentFuelWeight = segments.map((segment, index) => {
+    if (segment.charge) return 0
+    return perKm ? costForSegment(segment, ratePerKm(trip)) : (pooledEnergy[index] ?? 0)
+  })
+  const segmentDistance = segments.map(distanceForSegment)
 
   // Who was in the car is decided once. It is a fact about people rather than
   // about money, and letting the fuel pot and the upkeep pot each work it out
   // is how the two could come to disagree about who rode which leg.
-  const occupantsBySegment = trip.segments.map((segment, index) => {
+  const occupantsBySegment = segments.map((segment, index) => {
     const occupants = dedupe(segment.occupantIds.filter((personId) => known.has(personId)))
     if (occupants.length > 0) return occupants
 
     const chargeable =
-      (segmentFuelWeight[index] ?? 0) > 0 || (trip.maintenancePerKm > 0 && (segmentDistance[index] ?? 0) > 0)
+      (segmentFuelWeight[index] ?? 0) > 0 ||
+      (ownMoney[index] ?? 0) > 0 ||
+      (trip.maintenancePerKm > 0 && (segmentDistance[index] ?? 0) > 0)
     if (!chargeable) return occupants
 
     if (driver) {
@@ -59,8 +83,18 @@ export function calculateTrip(trip: Trip): TripResult {
     return occupants
   })
 
-  const fuelPool = perKm ? sumMoney(segmentFuelWeight) : resolveFuelPool(trip, energyTotal, warnings)
-  const fuel = spread(fuelPool, occupantsBySegment, segmentFuelWeight)
+  const fuelPool = perKm
+    ? sumMoney(segmentFuelWeight)
+    : resolveFuelPool(trip, fuelBought, pooledEnergyTotal, warnings)
+  const pooledFuel = spread(fuelPool, occupantsBySegment, segmentFuelWeight)
+  const pricedByHand = spread(sumMoney(ownMoney), occupantsBySegment, ownMoney)
+
+  // One list of claims from here on, so everything downstream stays single-path.
+  const fuel: Spread = {
+    claims: [...pooledFuel.claims, ...pricedByHand.claims],
+    amounts: [...pooledFuel.amounts, ...pricedByHand.amounts],
+    pool: pooledFuel.pool + pricedByHand.pool,
+  }
 
   const maintenancePool = Math.round(totalDistanceKm(trip) * positive(trip.maintenancePerKm))
   const maintenance = spread(maintenancePool, occupantsBySegment, segmentDistance)
@@ -83,14 +117,14 @@ export function calculateTrip(trip: Trip): TripResult {
   const energyByPerson = new Map<PersonId, number>()
   const distanceByPerson = new Map<PersonId, number>()
   const segmentIdsByPerson = new Map<PersonId, Set<string>>()
-  const sharesBySegment: Array<Record<PersonId, Money>> = trip.segments.map(() => ({}))
+  const sharesBySegment: Array<Record<PersonId, Money>> = segments.map(() => ({}))
 
   const note = (personId: PersonId, segmentIndex: number, amount: Money) => {
     const segmentShares = sharesBySegment[segmentIndex]
     if (segmentShares) segmentShares[personId] = (segmentShares[personId] ?? 0) + amount
 
     const seen = segmentIdsByPerson.get(personId) ?? new Set<string>()
-    const segment = trip.segments[segmentIndex]
+    const segment = segments[segmentIndex]
     if (segment) seen.add(segment.id)
     segmentIdsByPerson.set(personId, seen)
   }
@@ -119,7 +153,7 @@ export function calculateTrip(trip: Trip): TripResult {
 
   const overheadByPerson = new Map<PersonId, Money>()
   let overheadTotal = 0
-  for (const cost of trip.overheadCosts) {
+  for (const cost of sharedBought) {
     const allocation = allocateOverhead(cost, trip.people)
     warnings.push(...allocation.warnings)
     overheadTotal += allocation.total
@@ -135,7 +169,7 @@ export function calculateTrip(trip: Trip): TripResult {
    * than dropping out of the reconciliation entirely.
    */
   const frontedByPerson = new Map<PersonId, Money>()
-  for (const entry of [...trip.receipts, ...trip.overheadCosts]) {
+  for (const entry of [...fuelBought, ...sharedBought]) {
     let payer = entry.paidBy ?? driver?.id
     if (payer && !known.has(payer)) {
       warnings.push(`"${entry.label}" is marked as paid by somebody no longer on the trip.`)
@@ -181,7 +215,7 @@ export function calculateTrip(trip: Trip): TripResult {
     segmentIds: [...(segmentIdsByPerson.get(person.id) ?? [])],
   }))
 
-  const segments: SegmentBreakdown[] = trip.segments.map((segment, index) => {
+  const segmentBreakdowns: SegmentBreakdown[] = segments.map((segment, index) => {
     const shares = sharesBySegment[index] ?? {}
     const occupants = occupantsBySegment[index] ?? []
     const energy = segmentEnergy[index] ?? 0
@@ -203,7 +237,7 @@ export function calculateTrip(trip: Trip): TripResult {
   // A foreign amount with no usable rate converts to nothing, which is real
   // money quietly leaving the reconciliation. Said out loud rather than left
   // to be noticed as a total that looks slightly wrong.
-  for (const entry of [...trip.receipts, ...trip.overheadCosts]) {
+  for (const entry of [...fuelBought, ...sharedBought]) {
     if (entry.foreign && !(entry.foreign.rate > 0)) {
       warnings.push(
         `"${entry.label}" is in ${entry.foreign.currency} with no exchange rate, so it is not being counted.`,
@@ -211,12 +245,12 @@ export function calculateTrip(trip: Trip): TripResult {
     }
   }
 
-  const receiptsTotal = sumMoney(trip.receipts.map((receipt) => receipt.amount))
+  const receiptsTotal = sumMoney(fuelBought.map((receipt) => receipt.amount))
   const receiptsDelta = trip.pricing.mode === 'from-receipts' ? 0 : receiptsTotal - fuelTotal
   // With no receipts there is nothing to reconcile against, so saying the
   // charge exceeds them is noise on every new trip. The delta itself stays
   // truthful; only the warning waits until there is something to compare with.
-  if (trip.receipts.length > 0 && Math.abs(receiptsDelta) >= 100) {
+  if (fuelBought.length > 0 && Math.abs(receiptsDelta) >= 100) {
     warnings.push(
       receiptsDelta > 0
         ? 'The receipts are larger than the energy being charged out. The difference is coming out of the driver’s pocket.'
@@ -246,7 +280,7 @@ export function calculateTrip(trip: Trip): TripResult {
       people.filter((person) => !person.isDriver && person.owes < 0).map((person) => -person.owes),
     ),
     driverPayable: people.find((person) => person.isDriver)?.payable ?? 0,
-    segments,
+    segments: segmentBreakdowns,
     people,
     warnings: dedupe(warnings),
   }
@@ -279,9 +313,14 @@ function ratePerKm(trip: Trip): Money {
   return trip.pricing.mode === 'per-km' ? positive(trip.pricing.ratePerKm) : 0
 }
 
-function resolveFuelPool(trip: Trip, energyTotal: number, warnings: string[]): Money {
+function resolveFuelPool(
+  trip: Trip,
+  fuelBought: readonly { amount: Money }[],
+  energyTotal: number,
+  warnings: string[],
+): Money {
   if (trip.pricing.mode === 'from-receipts') {
-    const receipts = sumMoney(trip.receipts.map((receipt) => receipt.amount))
+    const receipts = sumMoney(fuelBought.map((receipt) => receipt.amount))
     if (receipts === 0)
       warnings.push('Add a receipt — the price per unit is derived from what was actually spent.')
     if (energyTotal === 0 && receipts !== 0)

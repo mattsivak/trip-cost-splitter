@@ -2,7 +2,9 @@ import type { EnergyKind } from '../pricing/energyKind'
 import type { Money, RoundingMode } from '../money/money'
 
 export type PersonId = string
+/** Kept as the name for a line's id where the result still says "segment". */
 export type SegmentId = string
+export type LineId = string
 
 export interface Person {
   id: PersonId
@@ -19,16 +21,35 @@ export interface RoutePoint {
 
 export type DistanceSource = 'manual' | 'osrm' | 'mapy' | 'imported'
 
-interface SegmentBase {
-  id: SegmentId
+/**
+ * A trip is one ordered ledger of lines, in the order things happened: you
+ * drove, you waited, you bought a coffee, you drove again. Three separate
+ * lists could not say that a toll happened between two drives, and made the
+ * user file every expense into one of two forms with different fields.
+ */
+interface LineBase {
+  id: LineId
   label: string
-  /** Who was in the car. An empty list means nobody can be billed for it. */
-  occupantIds: PersonId[]
   notes?: string
 }
 
+/** A line that people were present for, and so share the cost of. */
+interface RiddenLine extends LineBase {
+  /** Who was in the car. An empty list means nobody can be billed for it. */
+  occupantIds: PersonId[]
+}
+
+/**
+ * What a drive or a stop costs, when it is not the trip's own pricing.
+ *
+ * A trip is normally priced one way throughout — fuel at a price per litre, or
+ * a rate per kilometre. A single leg can say otherwise: a taxi you paid for
+ * outright, a stretch billed at a different rate.
+ */
+export type LineCharge = { mode: 'money'; amount: Money } | { mode: 'per-km'; ratePerKm: Money }
+
 /** A stretch of driving. Its fuel is derived from distance and consumption. */
-export interface DriveSegment extends SegmentBase {
+export interface DriveLine extends RiddenLine {
   kind: 'drive'
   from: string
   to: string
@@ -42,14 +63,16 @@ export interface DriveSegment extends SegmentBase {
   directEnergy?: number
   distanceSource: DistanceSource
   geometry?: string
+  /** Priced by hand instead of by the trip's fuel or rate. */
+  charge?: LineCharge
 }
 
 /**
  * Energy used while parked, idling or waiting. Measured, not derived.
  * For an electric car this is the cabin heating that runs while you wait.
  */
-export interface IdleSegment extends SegmentBase {
-  kind: 'idle'
+export interface StopLine extends RiddenLine {
+  kind: 'stop'
   location?: string
   energy: number
   /**
@@ -58,15 +81,15 @@ export interface IdleSegment extends SegmentBase {
    * Kept alongside `energy` rather than replacing it, so switching modes back
    * and forth never discards what was typed.
    */
-  cost?: Money
+  charge?: LineCharge
 }
 
 /**
- * Drives and idle stops are the same thing to the splitter: a quantity of
- * energy plus the people who were there for it. Keeping them in one union is
- * what lets the calculator have a single code path.
+ * Drives and stops are the same thing to the splitter: a quantity of energy
+ * plus the people who were there for it. Keeping them in one union is what
+ * lets the calculator have a single code path.
  */
-export type Segment = DriveSegment | IdleSegment
+export type Segment = DriveLine | StopLine
 
 export type OverheadAllocation =
   /** Split evenly. Omitting `personIds` means everyone on the trip. */
@@ -105,7 +128,30 @@ export interface ForeignAmount {
   source?: RateSource
 }
 
-/** A non-fuel cost: tolls, parking, a vignette, a ferry. */
+/**
+ * Money somebody spent: a tank of fuel, a toll, parking, a coffee, the
+ * apartment. `funds` is the only thing that separates a fuel purchase from a
+ * shared one — the first pays for the driving, the second is divided between
+ * the people it was for.
+ */
+export interface BuyLine extends LineBase {
+  kind: 'buy'
+  /** Always the trip's own currency. Converted from `foreign` when there is one. */
+  amount: Money
+  funds: 'fuel' | 'people'
+  /** Only meaningful when `funds` is 'people'. */
+  allocation: OverheadAllocation
+  foreign?: ForeignAmount
+  /** The day it was paid, which is also the day whose exchange rate applies. */
+  date?: string
+  /** Who put the money down. Absent means the driver. */
+  paidBy?: PersonId
+}
+
+/** One row of the ledger, in the order it happened. */
+export type TripLine = DriveLine | StopLine | BuyLine
+
+/** A non-fuel cost: tolls, parking, a vignette, a ferry. Legacy, read-only. */
 export interface OverheadCost {
   id: string
   label: string
@@ -188,9 +234,8 @@ export interface Trip {
   driverId: PersonId | null
   people: Person[]
   routePoints: RoutePoint[]
-  segments: Segment[]
-  overheadCosts: OverheadCost[]
-  receipts: Receipt[]
+  /** The whole trip, in order: drives, stops and money, interleaved. */
+  lines: TripLine[]
   rounding: RoundingMode
   /**
    * ISO code behind `currency`, when we know it. `currency` is free text for

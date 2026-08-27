@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { goTo } from './support/trip'
 
 /**
  * The way back into your own trip.
@@ -20,7 +21,7 @@ async function makeTrip(page: Page) {
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Who came along' })).toBeVisible()
 
   await page.getByRole('textbox', { name: 'Trip', exact: true }).fill('Alps')
   await page.getByPlaceholder('Name', { exact: true }).fill('Matthew')
@@ -32,6 +33,7 @@ async function makeTrip(page: Page) {
 }
 
 async function copyEditLink(page: Page): Promise<string> {
+  await goTo(page, 'Settle up')
   await page.getByRole('button', { name: 'Copy the link back to this trip' }).click()
   return await page.evaluate(() => navigator.clipboard.readText())
 }
@@ -83,6 +85,7 @@ test('the trip is editable from there, not just readable', async ({ page }) => {
  */
 test('a view key does not open the wizard', async ({ page }) => {
   await makeTrip(page)
+  await goTo(page, 'Settle up')
   await page.getByRole('button', { name: 'Copy the payment link' }).click()
   const viewLink = await page.evaluate(() => navigator.clipboard.readText())
 

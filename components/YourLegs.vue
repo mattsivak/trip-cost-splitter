@@ -68,7 +68,7 @@ function whoElse(occupantIds: readonly string[]): string {
         <span class="mine__leg">
           <strong>{{ segment.label }}</strong>
           <small>
-            {{ segment.kind === 'idle' ? 'waiting' : formatKm(segment.distanceKm) }} ·
+            {{ segment.kind === 'stop' ? 'waiting' : formatKm(segment.distanceKm) }} ·
             {{ whoElse(segment.occupantIds) }}
           </small>
         </span>
