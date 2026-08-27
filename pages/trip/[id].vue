@@ -10,7 +10,6 @@ const openKey = ref('')
 if (import.meta.client) openKey.value = window.location.hash.replace(/^#/, '').trim()
 
 const { trip, result, status, reload } = useTrip(tripId, openKey)
-const step = ref(0)
 
 useHead({ title: () => (trip.value ? `${trip.value.title} · Trip Cost Splitter` : 'Trip Cost Splitter') })
 </script>
@@ -62,17 +61,19 @@ useHead({ title: () => (trip.value ? `${trip.value.title} · Trip Cost Splitter`
 
     <PumpReadout :trip="trip" :result="result" />
 
-    <StepRail v-model="step" />
-
-    <RouteStep v-if="step === 0" :trip="trip" />
-    <PeopleStep v-else-if="step === 1" :trip="trip" />
-    <AssignStep v-else-if="step === 2" :trip="trip" />
-    <ResultStep v-else-if="step === 3" :trip="trip" :result="result" />
-    <CollectStep v-else :trip="trip" :result="result" />
-
-    <div class="button-row" style="margin-top: 32px; justify-content: space-between">
-      <button type="button" class="button--quiet" :disabled="step === 0" @click="step -= 1">Back</button>
-      <button v-if="step < 4" type="button" @click="step += 1">Next</button>
+    <!--
+      One screen, in the order the questions arrive: what the car costs, who
+      came, where it went and who was aboard for each leg, what was spent, where
+      that leaves everybody, and how to get it back. It was five steps in a line,
+      which is the wrong shape for a job that is mostly fiddling — and two of
+      those steps drew the same list of legs twice.
+    -->
+    <div class="stack">
+      <TheCar :trip="trip" />
+      <ThePeople :trip="trip" />
+      <TheRoute :trip="trip" />
+      <TheSplit :trip="trip" :result="result" />
+      <TheCollection :trip="trip" :result="result" />
     </div>
   </div>
 </template>

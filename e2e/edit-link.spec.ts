@@ -23,12 +23,8 @@ async function makeTrip(page: Page) {
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
 
   await page.getByRole('textbox', { name: 'Trip', exact: true }).fill('Alps')
-
-  await page.getByRole('button', { name: 'People' }).click()
-  await page.getByPlaceholder('Name').fill('Matthew')
+  await page.getByPlaceholder('Name', { exact: true }).fill('Matthew')
   await page.getByRole('button', { name: 'Add person' }).click()
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
   )

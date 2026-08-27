@@ -69,8 +69,6 @@ test('a shared link that cannot be reached says so, and offers another go', asyn
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
@@ -125,10 +123,7 @@ test('every number field asks for the number keyboard', async ({ page }) => {
   await page.getByRole('button', { name: 'Open the example trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
 
-  for (const step of ['Route', 'People', 'Assign', 'Split', 'Collect']) {
-    await page.getByRole('navigation').getByRole('button', { name: step }).click()
-    await expect(page.locator('input[type="number"]:not([inputmode])')).toHaveCount(0)
-  }
+  await expect(page.locator('input[type="number"]:not([inputmode])')).toHaveCount(0)
 })
 
 /**
@@ -141,8 +136,6 @@ test('marking somebody paid keeps the keyboard where it was', async ({ page }) =
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('navigation').getByRole('button', { name: 'Collect' }).click()
   const mark = page.getByRole('button', { name: 'Mark paid' }).first()
   await mark.focus()
   await page.keyboard.press('Enter')

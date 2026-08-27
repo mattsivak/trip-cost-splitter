@@ -33,24 +33,17 @@ async function startTrip(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'People' }).click()
   for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name').fill(name)
+    await page.getByPlaceholder('Name', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Add person' }).click()
   }
-
-  await page.getByRole('button', { name: 'Route' }).click()
   await page.getByRole('button', { name: 'Add a drive' }).click()
   await page.getByLabel('Distance km').fill('100')
-
-  await page.getByRole('button', { name: 'Assign' }).click()
   await page.getByRole('button', { name: 'Everyone', exact: true }).click()
 }
 
 /** Switch to the per-km basis and set both rates. */
 async function priceByKm(page: Page, rate: string, upkeep: string) {
-  await page.getByRole('button', { name: 'Split' }).click()
   await page.getByText('Set a price per km').click()
   await page.getByLabel('Kč per km', { exact: true }).fill(rate)
   await page.getByLabel('Kč per km, car costs').fill(upkeep)
@@ -77,7 +70,6 @@ test('no fuel is counted, so no litre figure is quoted anywhere', async ({ page 
   await expect(page.getByText('Charged by the kilometre, so no fuel is counted')).toBeVisible()
 
   // The consumption figure is not asked for either.
-  await page.getByRole('button', { name: 'Route' }).click()
   await expect(page.getByLabel('Consumption L/100 km')).toHaveCount(0)
 })
 
@@ -91,8 +83,6 @@ test('the message for the group chat names the car costs separately', async ({ p
 
 test('car costs are charged on the consumption basis too', async ({ page }) => {
   await startTrip(page)
-
-  await page.getByRole('button', { name: 'Route' }).click()
   await page.getByLabel('Kč per L').fill('40')
   await page.getByLabel('Consumption L/100 km').fill('10')
   await page.getByLabel('Kč per km, car costs').fill('2')
@@ -105,7 +95,6 @@ test('car costs are charged on the consumption basis too', async ({ page }) => {
 
 test('car costs show in a share only once some are charged', async ({ page }) => {
   await startTrip(page)
-  await page.getByRole('button', { name: 'Split' }).click()
 
   const matthew = page.getByRole('group', { name: /'s share/ }).first()
   await matthew.locator('summary').click()
@@ -118,12 +107,8 @@ test('car costs show in a share only once some are charged', async ({ page }) =>
 test('a waiting stop is priced as money when the trip is priced per km', async ({ page }) => {
   await startTrip(page)
   await priceByKm(page, '4', '0')
-
-  await page.getByRole('button', { name: 'Route' }).click()
   await page.getByRole('button', { name: 'Add a waiting stop after this' }).click()
   await page.getByLabel('Kč it cost').fill('120')
-
-  await page.getByRole('button', { name: 'Assign' }).click()
   for (const button of await page.getByRole('button', { name: 'Everyone', exact: true }).all()) {
     await button.click()
   }
@@ -135,8 +120,6 @@ test('a waiting stop is priced as money when the trip is priced per km', async (
 test('switching back to a price per litre restores the fuel figures', async ({ page }) => {
   await startTrip(page)
   await priceByKm(page, '4', '0')
-
-  await page.getByRole('button', { name: 'Split' }).click()
   await page.getByText('Set a price per L').click()
   await page.getByLabel('Kč per L').fill('40')
 

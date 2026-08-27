@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
+import { formatEnergy } from '~/src/domain/pricing/energyKind'
 import type { TripResult } from '~/src/domain/trip/result'
 import { formatTripSummary } from '~/src/domain/trip/summary'
 import type { Trip } from '~/src/domain/trip/types'
@@ -10,12 +10,6 @@ const { exact } = useMoney(() => props.trip.currency)
 const copied = ref(false)
 
 const summary = computed(() => formatTripSummary(props.trip, props.result))
-
-function setMode(mode: Trip['pricing']['mode']) {
-  if (mode === 'from-receipts') props.trip.pricing = { mode }
-  else if (mode === 'per-km') props.trip.pricing = { mode, ratePerKm: 0 }
-  else props.trip.pricing = { mode: 'fixed-price', pricePerUnit: 0 }
-}
 
 /** What the split was measured from, in the same units the rest of the page uses. */
 function basisFor(segmentId: string): string {
@@ -45,50 +39,13 @@ async function copy() {
 
 <template>
   <div class="stack">
-    <section class="section" style="margin-top: 0">
+    <section class="section" style="margin-top: 0" aria-label="What was spent">
       <div class="section__head">
         <div>
-          <p class="eyebrow">Step 4</p>
-          <h2>What was actually spent</h2>
-          <p class="section__lede">
-            Receipts are the money that really left somebody's pocket — the driver's unless you say otherwise.
-            Price the trip from them and the split always adds up to what was spent; set a price per unit
-            instead and the app tells you what is left over.
-          </p>
+          <p class="eyebrow">Money that left somebody's pocket</p>
+          <h2>What was spent</h2>
         </div>
       </div>
-
-      <div class="button-row" style="margin-bottom: 16px">
-        <label class="toggle" :class="{ 'is-on': trip.pricing.mode === 'from-receipts' }">
-          <input
-            type="radio"
-            :checked="trip.pricing.mode === 'from-receipts'"
-            :name="`pricing-${trip.id}`"
-            @change="setMode('from-receipts')"
-          />
-          <span>Price from the receipts</span>
-        </label>
-        <label class="toggle" :class="{ 'is-on': trip.pricing.mode === 'fixed-price' }">
-          <input
-            type="radio"
-            :checked="trip.pricing.mode === 'fixed-price'"
-            :name="`pricing-${trip.id}`"
-            @change="setMode('fixed-price')"
-          />
-          <span>Set a price per {{ unitLabelFor(trip.energyKind) }}</span>
-        </label>
-        <label class="toggle" :class="{ 'is-on': trip.pricing.mode === 'per-km' }">
-          <input
-            type="radio"
-            :checked="trip.pricing.mode === 'per-km'"
-            :name="`pricing-${trip.id}`"
-            @change="setMode('per-km')"
-          />
-          <span>Set a price per km</span>
-        </label>
-      </div>
-
-      <EnergyPrice :trip="trip" />
 
       <ExpenseList :trip="trip" />
     </section>

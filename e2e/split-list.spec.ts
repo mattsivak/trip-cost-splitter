@@ -40,21 +40,13 @@ async function tripWithTwo(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'People' }).click()
   for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name').fill(name)
+    await page.getByPlaceholder('Name', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Add person' }).click()
   }
-
-  await page.getByRole('navigation').getByRole('button', { name: 'Route' }).click()
   await page.getByRole('button', { name: 'Add a drive' }).click()
   await page.getByLabel('Distance km').fill('100')
-
-  await page.getByRole('navigation').getByRole('button', { name: 'Assign' }).click()
   await page.getByRole('button', { name: 'Everyone', exact: true }).click()
-
-  await page.getByRole('navigation').getByRole('button', { name: 'Split' }).click()
   await page.getByText('Price from the receipts').click()
   await addExpense(page, 'The tank', '600')
   await addExpense(page, 'Motorway toll', '100', 'Extra')
@@ -102,17 +94,13 @@ test('the driver carries the rounding, on the line that carries it', async ({ pa
   await stubPrice(page)
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await page.getByRole('button', { name: 'People' }).click()
   for (const name of ['Matthew', 'Janca', 'Terka']) {
-    await page.getByPlaceholder('Name').fill(name)
+    await page.getByPlaceholder('Name', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Add person' }).click()
   }
-  await page.getByRole('navigation').getByRole('button', { name: 'Route' }).click()
   await page.getByRole('button', { name: 'Add a drive' }).click()
   await page.getByLabel('Distance km').fill('100')
-  await page.getByRole('navigation').getByRole('button', { name: 'Assign' }).click()
   await page.getByRole('button', { name: 'Everyone', exact: true }).click()
-  await page.getByRole('navigation').getByRole('button', { name: 'Split' }).click()
   await page.getByText('Price from the receipts').click()
   // 100,50 into three does not go, and somebody has to carry the difference.
   await addExpense(page, 'The tank', '100.50')

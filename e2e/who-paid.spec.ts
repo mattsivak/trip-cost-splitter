@@ -61,21 +61,13 @@ async function tripPricedFromReceipts(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'People' }).click()
   for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name').fill(name)
+    await page.getByPlaceholder('Name', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Add person' }).click()
   }
-
-  await page.getByRole('button', { name: 'Route' }).click()
   await page.getByRole('button', { name: 'Add a drive' }).click()
   await page.getByLabel('Distance km').fill('100')
-
-  await page.getByRole('button', { name: 'Assign' }).click()
   await page.getByRole('button', { name: 'Everyone', exact: true }).click()
-
-  await page.getByRole('button', { name: 'Split' }).click()
   await page.getByText('Price from the receipts').click()
   return await addExpense(page, 'The tank', '400')
 }
@@ -105,20 +97,17 @@ test('somebody who laid out more than their share is owed the difference', async
 test('the person who is owed money is not asked to pay any', async ({ page }) => {
   const receipt = await tripPricedFromReceipts(page)
   await payerIs(receipt, 'Janca')
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
 
   await expect(page.getByRole('link', { name: /^Pay .*Janca/ })).toHaveCount(0)
-  await expect(page.getByText('sends back')).toBeVisible()
-  await expect(page.getByText('Janca')).toBeVisible()
+  const back = page.locator('.settle-back')
+  await expect(back).toContainText('sends back')
+  await expect(back).toContainText('Janca')
 })
 
 test('the shared page says whose money each receipt was', async ({ page }) => {
   const receipt = await tripPricedFromReceipts(page)
   await payerIs(receipt, 'Janca')
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',

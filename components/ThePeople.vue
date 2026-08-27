@@ -44,7 +44,7 @@ function segmentCount(personId: string): number {
   <section class="section" style="margin-top: 0">
     <div class="section__head">
       <div>
-        <p class="eyebrow">Step 2</p>
+        <p class="eyebrow">Who is splitting this</p>
         <h2>Who came along</h2>
         <p class="section__lede">
           Everyone who was in the car at any point, including whoever paid. The driver is marked because they

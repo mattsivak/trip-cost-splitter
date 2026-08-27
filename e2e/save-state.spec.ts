@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test'
  * in cars and tunnels, so the interesting case is the one where the request
  * does not arrive.
  */
-const badge = (page: Page) => page.getByRole('status')
+const badge = (page: Page) => page.locator('.save-state')
 
 /** Exact, or the "Trip totals" readout answers to the same name. */
 const titleField = (page: Page) => page.getByRole('textbox', { name: 'Trip', exact: true })

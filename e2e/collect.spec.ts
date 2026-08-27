@@ -17,7 +17,6 @@ async function openDemoAtCollect(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-  await page.getByRole('button', { name: 'Collect' }).click()
   await expect(page.getByRole('heading', { name: 'Getting it back' })).toBeVisible()
 }
 
@@ -124,7 +123,6 @@ test('marking yourself paid on the shared link is visible to the collector', asy
 
   // Reload the owner's screen: the server is the shared source of truth.
   await page.goto(tripUrl)
-  await page.getByRole('button', { name: 'Collect' }).click()
   await expect(page.locator('.settle-row', { hasText: 'Terka' }).getByText(/✓ paid/)).toBeVisible()
   await guest.close()
 })
@@ -135,7 +133,6 @@ test('a collector with the trip open cannot wipe a mark made on the link', async
   const tripUrl = page.url()
 
   // The collector edits something, so an autosave of the whole trip is pending.
-  await page.getByRole('button', { name: 'Split' }).click()
   await page.getByLabel('Kč per L').fill('44')
 
   const guest = await context.newPage()
@@ -148,7 +145,6 @@ test('a collector with the trip open cannot wipe a mark made on the link', async
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
   )
   await page.goto(tripUrl)
-  await page.getByRole('button', { name: 'Collect' }).click()
   await expect(page.locator('.settle-row', { hasText: 'Anet' }).getByText(/✓ paid/)).toBeVisible()
   await guest.close()
 })
@@ -164,23 +160,15 @@ test('a trip made from scratch gets payment buttons, not just the promise of the
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'People' }).click()
   for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name').fill(name)
+    await page.getByPlaceholder('Name', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Add person' }).click()
   }
-
-  await page.getByRole('button', { name: 'Route' }).click()
   // The stubbed lookup leaves no price, so without this nobody owes anything.
   await page.getByLabel('Kč per L').fill('40')
   await page.getByRole('button', { name: 'Add a drive' }).click()
   await page.getByLabel('Distance km').fill('100')
-
-  await page.getByRole('button', { name: 'Assign' }).click()
   await page.getByRole('button', { name: 'Everyone', exact: true }).click()
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await expect(page.getByRole('link', { name: /^Pay / })).toBeVisible()
   await waitForSave(page)

@@ -158,6 +158,29 @@ The shared payment page names whose money each receipt was, and gives each
 person their own paid-and-net line in the working. Somebody who bought fuel on
 a trip should be able to open the link and see it counted.
 
+## One screen, not five steps
+
+A trip used to be a five-step wizard: Route, People, Assign, Split, Collect,
+with Back and Next. That shape says the job is one pass in one direction. The
+job is actually fiddling — change a distance, move somebody off a leg, add the
+toll you forgot, watch the split move — and the wizard made all of that a walk.
+
+Two of the steps were the same object drawn twice. Route listed the legs to set
+their distances; Assign listed the same legs to set who was aboard. Editing one
+drive meant a round trip between screens. **A leg is one card now**: from, to,
+distance, consumption, and under it the bar and the pills for who was in the
+car, which re-cut as you tap them.
+
+And the pricing mode, which lived two steps _after_ the route, silently rewrote
+it — choosing per-kilometre made the consumption fields disappear behind you.
+That is a decision about the car, so it sits above the route, where you can
+watch it change what the legs ask for.
+
+What is left is one page in the order the questions arrive: the car, who came,
+where it went and who was aboard, what was spent, where that leaves everybody,
+and how to get it back. The readout at the top answers "where do I stand" the
+whole way down.
+
 ## One expense, one line per person
 
 There used to be two lists of money spent, with asymmetric powers: a receipt

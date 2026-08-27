@@ -44,11 +44,8 @@ async function openPaymentLink(page: Page, options: { dateTheFirstReceipt?: bool
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
 
   if (options.dateTheFirstReceipt) {
-    await page.getByRole('button', { name: 'Split' }).click()
     await page.getByLabel('Date').first().fill('2026-08-14')
   }
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
@@ -141,26 +138,16 @@ async function openLinkForTripWithExtras(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'People' }).click()
   for (const name of ['Matthew', 'Janca']) {
-    await page.getByPlaceholder('Name').fill(name)
+    await page.getByPlaceholder('Name', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Add person' }).click()
   }
-
-  await page.getByRole('button', { name: 'Route' }).click()
   await page.getByLabel('Kč per L').fill('40')
   await page.getByLabel('Kč per km, car costs').fill('2')
   await page.getByRole('button', { name: 'Add a drive' }).click()
   await page.getByLabel('Distance km').fill('100')
-
-  await page.getByRole('button', { name: 'Assign' }).click()
   await page.getByRole('button', { name: 'Everyone', exact: true }).click()
-
-  await page.getByRole('button', { name: 'Split' }).click()
   await addExpense(page, 'Motorway toll', '300', 'Extra')
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',
@@ -205,13 +192,9 @@ test('a trip that is missing something says so on the page it sends out', async 
   await page.goto('/')
   await page.getByRole('button', { name: 'Open the example trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Split' }).click()
   await page.getByText('Set a price per L').click()
   await page.getByLabel('Kč per L').fill('0')
   await expect(page.getByText(/Set a price per/).first()).toBeVisible()
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',

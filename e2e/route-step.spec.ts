@@ -102,9 +102,10 @@ test('an idle stop is added after the drive it belongs to, not at the end', asyn
 })
 
 test.describe('dragging', () => {
-  // Tall enough that several parts share the viewport; a native drag cannot
-  // reach a drop target that is below the fold.
-  test.use({ viewport: { width: 1400, height: 1800 } })
+  // Tall enough that several legs share the viewport; a native drag cannot
+  // reach a drop target that is below the fold — and a leg card is taller now
+  // that it carries its own occupancy controls.
+  test.use({ viewport: { width: 1400, height: 3400 } })
 
   test('a part can be dragged to a new position by its handle', async ({ page }) => {
     await openDemo(page)
@@ -189,8 +190,6 @@ test('the split still reconciles after the route is reshaped', async ({ page }) 
 
   await page.getByRole('button', { name: 'Look up the route' }).click()
   await expect(page.getByText('Found 2 drives via OpenStreetMap')).toBeVisible()
-
-  await page.getByRole('button', { name: 'Split' }).click()
 
   await expect(page.getByText(/Collect |Nothing to collect/)).toBeVisible()
   await expect(page.locator('.readout__cell').first().locator('.readout__value')).not.toHaveText('')

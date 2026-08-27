@@ -53,22 +53,14 @@ async function tripWithThree(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
   await expect(page.getByRole('heading', { name: 'Where the car went' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'People' }).click()
   for (const name of ['Matthew', 'Janca', 'Terka']) {
-    await page.getByPlaceholder('Name').fill(name)
+    await page.getByPlaceholder('Name', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Add person' }).click()
   }
-
-  await page.getByRole('button', { name: 'Route' }).click()
   await page.getByLabel('Kč per L').fill('40')
   await page.getByRole('button', { name: 'Add a drive' }).click()
   await page.getByLabel('Distance km').fill('100')
-
-  await page.getByRole('button', { name: 'Assign' }).click()
   await page.getByRole('button', { name: 'Everyone', exact: true }).click()
-
-  await page.getByRole('button', { name: 'Split' }).click()
 }
 
 /** The split control belonging to one cost, named after it. */
@@ -134,8 +126,6 @@ test('the shared page says who a restricted cost was charged to', async ({ page 
   const cost = costBlock(page, 'Austrian vignette')
   await openSentence(cost)
   await cost.locator('.expense__who label.toggle', { hasText: 'Terka' }).click()
-
-  await page.getByRole('button', { name: 'Collect' }).click()
   await page.getByLabel('Your Revolut handle').fill('mattsivak')
   await page.waitForResponse(
     (response) => response.url().includes('/api/trips/') && response.request().method() === 'PUT',

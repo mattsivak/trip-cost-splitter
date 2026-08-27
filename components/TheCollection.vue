@@ -112,7 +112,7 @@ async function togglePaid(personId: string, paid: boolean) {
     <section class="section" style="margin-top: 0">
       <div class="section__head">
         <div>
-          <p class="eyebrow">Step 5</p>
+          <p class="eyebrow">Getting it back</p>
           <h2>Getting it back</h2>
           <p class="section__lede">
             Send everyone a link showing what they owe, with a payment button. They can mark themselves paid

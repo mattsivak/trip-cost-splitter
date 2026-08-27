@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { consumptionLabelFor, formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
+import { formatEnergy, unitLabelFor } from '~/src/domain/pricing/energyKind'
 import { insertAfter } from '~/src/domain/list'
 import { createDrive, createIdle, driveLabel } from '~/src/domain/trip/factories'
-import { energyForSegment } from '~/src/domain/trip/energy'
+import { costForSegment, energyForSegment } from '~/src/domain/trip/energy'
 import { routeToSegments } from '~/src/domain/routing/routeToSegments'
 import { reanchorIdleStops } from '~/src/domain/trip/reanchorIdleStops'
 import { fromMajor, toMajor } from '~/src/domain/money/money'
 import type { GeoPoint } from '~/src/domain/routing/types'
-import type { IdleSegment, Trip } from '~/src/domain/trip/types'
+import type { IdleSegment, PersonId, Segment, Trip } from '~/src/domain/trip/types'
 
 /**
  * The trip object is reactive and owned by the page; steps edit it in place.
@@ -15,6 +15,8 @@ import type { IdleSegment, Trip } from '~/src/domain/trip/types'
  * events would be more machinery than the problem deserves.
  */
 const props = defineProps<{ trip: Trip }>()
+
+const { money } = useMoney(() => props.trip.currency)
 
 const routing = useRouting()
 const stopsDraft = ref(props.trip.routePoints.map((point) => point.label).join('\n'))
@@ -115,6 +117,7 @@ function quantity(segment: Trip['segments'][number]): number {
  * everything derived from it would only be decoration on a number nobody uses.
  */
 const perKm = computed(() => props.trip.pricing.mode === 'per-km')
+const ratePerKm = computed(() => (props.trip.pricing.mode === 'per-km' ? props.trip.pricing.ratePerKm : 0))
 
 const idleCostMajor = (segment: IdleSegment) => toMajor(segment.cost ?? 0)
 
@@ -127,6 +130,60 @@ function segmentBasis(segment: Trip['segments'][number]): string {
   if (perKm.value) return segment.kind === 'drive' ? formatKm(segment.distanceKm) : 'waiting'
   return formatEnergy(quantity(segment), props.trip.energyKind)
 }
+/**
+ * What a segment is worth, in whatever this trip measures shares in: litres of
+ * fuel, or money outright when it is priced by the kilometre and no fuel was
+ * ever counted. The bar only compares one segment's slices against each other,
+ * so any internally consistent quantity cuts it correctly.
+ */
+function worthOf(segment: Segment): number {
+  return perKm.value ? costForSegment(segment, ratePerKm.value) : energyForSegment(segment, props.trip)
+}
+
+/** That worth written out, optionally divided between the people sharing it. */
+function worthLabel(segment: Segment, count = 1): string {
+  const each = worthOf(segment) / Math.max(count, 1)
+  return perKm.value ? money(Math.round(each)) : formatEnergy(each, props.trip.energyKind)
+}
+
+function toggle(segment: Segment, personId: PersonId) {
+  segment.occupantIds = segment.occupantIds.includes(personId)
+    ? segment.occupantIds.filter((id) => id !== personId)
+    : [...segment.occupantIds, personId]
+}
+
+function setAll(segment: Segment, everyone: boolean) {
+  segment.occupantIds = everyone ? props.trip.people.map((person) => person.id) : []
+}
+
+function applyToRest(index: number) {
+  const source = props.trip.segments[index]
+  if (!source) return
+  for (const segment of props.trip.segments.slice(index + 1)) {
+    segment.occupantIds = [...source.occupantIds]
+  }
+}
+
+function slicesFor(segment: Segment) {
+  const occupants = segment.occupantIds.filter((id) => props.trip.people.some((person) => person.id === id))
+  if (!occupants.length) return []
+
+  const weight = worthOf(segment) / occupants.length
+  const label = worthLabel(segment, occupants.length)
+
+  return occupants.flatMap((personId) => {
+    const person = props.trip.people.find((entry) => entry.id === personId)
+    if (!person) return []
+    return [{ id: person.id, name: person.name, weight, label, isDriver: person.id === props.trip.driverId }]
+  })
+}
+
+function shareLabels(segment: Segment): Record<PersonId, string> {
+  const count = segment.occupantIds.length
+  if (!count) return {}
+  const each = worthLabel(segment, count)
+  return Object.fromEntries(segment.occupantIds.map((personId) => [personId, each]))
+}
 </script>
 
 <template>
@@ -134,7 +191,7 @@ function segmentBasis(segment: Trip['segments'][number]): string {
     <section class="section" style="margin-top: 0">
       <div class="section__head">
         <div>
-          <p class="eyebrow">Step 1</p>
+          <p class="eyebrow">The journey</p>
           <h2>Where the car went</h2>
           <p class="section__lede">
             Look the route up from a list of stops, or add each drive by hand. Every distance stays editable
@@ -148,20 +205,6 @@ function segmentBasis(segment: Trip['segments'][number]): string {
           <span>Stops, one per line</span>
           <textarea v-model="stopsDraft" rows="6" placeholder="Šumperk&#10;Olomouc&#10;Milovice" />
         </label>
-        <div class="stack stack--tight">
-          <label v-if="!perKm" class="field">
-            <span>Consumption {{ consumptionLabelFor(trip.energyKind) }}</span>
-            <input
-              v-model.number="trip.consumptionPer100Km"
-              type="number"
-              inputmode="decimal"
-              min="0"
-              step="0.1"
-            />
-          </label>
-          <p v-if="!perKm" class="hint">Used for any drive without its own figure.</p>
-          <EnergyPrice :trip="trip" show-mode-note />
-        </div>
       </div>
 
       <div class="button-row" style="margin-top: 12px">
@@ -202,6 +245,8 @@ function segmentBasis(segment: Trip['segments'][number]): string {
         v-for="(segment, index) in trip.segments"
         :key="segment.id"
         class="segment"
+        role="group"
+        :aria-label="segment.label || 'Untitled leg'"
         :class="{
           'segment--idle': segment.kind === 'idle',
           'is-dragging': draggingIndex === index,
@@ -312,6 +357,36 @@ function segmentBasis(segment: Trip['segments'][number]): string {
           </label>
         </div>
 
+        <!--
+          Who was aboard, on the same card as the distance. These were two
+          screens drawing the same list, so changing one drive meant walking
+          between them; the bar re-cuts as you toggle, which is the argument
+          the whole app is making.
+        -->
+        <div class="segment__people">
+          <LitreBar :slices="slicesFor(segment)" empty-label="Nobody aboard — this falls to the driver" />
+
+          <OccupantToggles
+            :people="trip.people"
+            :occupant-ids="segment.occupantIds"
+            :driver-id="trip.driverId"
+            :shares="shareLabels(segment)"
+            @toggle="(personId) => toggle(segment, personId)"
+          />
+
+          <div class="button-row">
+            <button type="button" class="button--quiet" @click="setAll(segment, true)">Everyone</button>
+            <button type="button" class="button--quiet" @click="setAll(segment, false)">Nobody</button>
+            <button
+              v-if="index < trip.segments.length - 1"
+              type="button"
+              class="button--quiet"
+              @click="applyToRest(index)"
+            >
+              Copy to the rest
+            </button>
+          </div>
+        </div>
         <div v-if="segment.kind === 'drive'" class="button-row">
           <button type="button" class="button--quiet" @click="addIdleStop(segment.to, index)">
             Add a waiting stop after this

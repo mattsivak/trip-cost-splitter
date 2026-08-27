@@ -34,8 +34,6 @@ test('a new trip is priced per unit, prefilled from the local pump price', async
   // The price is settable in step 1, next to the consumption figure it belongs with.
   await expect(page.getByLabel('Kč per L')).toHaveValue('40.95')
   await expect(page.getByText('Local pump price · Czech Republic · petrol')).toBeVisible()
-
-  await page.getByRole('button', { name: 'Split' }).click()
   await expect(page.getByLabel('Kč per L')).toHaveValue('40.95')
 })
 
@@ -45,8 +43,6 @@ test('the same control appears in step 1 and step 4, and they stay in step', asy
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
   await page.getByLabel('Kč per L').fill('37.5')
-
-  await page.getByRole('button', { name: 'Split' }).click()
   await expect(page.getByLabel('Kč per L')).toHaveValue('37.5')
 })
 
@@ -114,7 +110,6 @@ test('an empty trip is not scolded about receipts it does not have', async ({ pa
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Start a trip' }).click()
-  await page.getByRole('button', { name: 'Split' }).click()
 
   await expect(page.getByText('larger than the receipts on file')).toHaveCount(0)
 })
