@@ -15,7 +15,7 @@ test('drives and purchases sit in one list, in trip order', async ({ page }) => 
   await addPeople(page, ['Matthew', 'Janca'])
 
   await addDrive(page, 'Šumperk', 'Olomouc', '60')
-  await addPurchase(page, 'Coffee', '120')
+  await addPurchase(page, 'Coffee', '120', false)
   await addDrive(page, 'Olomouc', 'Brno', '80')
 
   await expect(page.locator('.ledger__line')).toHaveCount(3)
@@ -152,7 +152,7 @@ test('every purchase says what will happen to the money', async ({ page }) => {
   await addDrive(page, 'A', 'B', '100')
 
   // Shared: divided between the people it was for.
-  const toll = await addPurchase(page, 'Parking Vienna', '100')
+  const toll = await addPurchase(page, 'Parking Vienna', '100', false)
   await expect(toll).toContainText('split evenly between everyone')
 
   // Fuel: charged by who was in the car, but only where the receipts set the
@@ -164,9 +164,20 @@ test('every purchase says what will happen to the money', async ({ page }) => {
   await expect(tank).toContainText('charged by who was in the car')
 })
 
+/** Most of what gets added to a fuel-splitting app is fuel. */
+test('a new purchase starts as fuel', async ({ page }) => {
+  await startTrip(page)
+  await goTo(page, 'Route')
+  await page.getByRole('button', { name: 'Add a purchase' }).click()
+
+  const kinds = page.locator('.ledger__line').last().locator('.ledger__kind label.toggle')
+  await expect(kinds.filter({ hasText: 'Fuel' })).toHaveClass(/is-on/)
+  await expect(kinds.filter({ hasText: 'Shared' })).not.toHaveClass(/is-on/)
+})
+
 test('the choice is about what you bought, not about the arithmetic', async ({ page }) => {
   await startTrip(page)
-  const line = await addPurchase(page, 'Parking Vienna', '100')
+  const line = await addPurchase(page, 'Parking Vienna', '100', false)
 
   const kinds = line.locator('.ledger__kind label.toggle')
   await expect(kinds).toHaveCount(2)

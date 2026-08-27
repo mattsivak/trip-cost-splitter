@@ -73,14 +73,14 @@ export async function addDrive(page: Page, from: string, to: string, km: string)
   return line
 }
 
-/** One purchase. `fuel` makes it money that pays for the driving. */
-export async function addPurchase(page: Page, label: string, amount: string, fuel = false) {
+/** One purchase. Fuel by default, like the app; `fuel: false` shares it. */
+export async function addPurchase(page: Page, label: string, amount: string, fuel = true) {
   await goTo(page, 'Route')
   await page.getByRole('button', { name: 'Add a purchase' }).click()
   const line = page.locator('.ledger__line').last()
   await line.getByLabel('What it was for').fill(label)
   await line.getByLabel('Amount').fill(amount)
-  if (fuel) await line.locator('.ledger__kind label.toggle', { hasText: 'Fuel' }).click()
+  if (!fuel) await line.locator('.ledger__kind label.toggle', { hasText: 'Shared' }).click()
   return line
 }
 

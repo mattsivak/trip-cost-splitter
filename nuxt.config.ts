@@ -1,12 +1,23 @@
 import { defineNuxtConfig } from 'nuxt/config'
 
+/**
+ * The end-to-end tests build the real thing, and a developer usually has the
+ * dev server open while they run. One build directory for both means the build
+ * deletes `.nuxt/dist` underneath the dev server and it restarts mid-edit — so
+ * the test build gets its own, and the two stop treading on each other.
+ */
+const isolated = process.env.NUXT_TEST_BUILD === '1'
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   css: ['~/assets/main.css'],
 
+  ...(isolated ? { buildDir: '.nuxt-test' } : {}),
+
   // Trips live as one JSON file each. TRIPS_DIR moves that directory; it is
   // the only thing that needs to survive a redeploy.
   nitro: {
+    ...(isolated ? { output: { dir: '.output-test' } } : {}),
     storage: {
       trips: { driver: 'fs', base: process.env.TRIPS_DIR || './.data/trips' },
     },

@@ -27,7 +27,12 @@ export default defineConfig({
   webServer: {
     // Runs against the real build, not the dev server: these tests exist to
     // check what actually ships.
-    command: `npm run build && PORT=${PORT} node .output/server/index.mjs`,
+    //
+    // It builds into its own directory, so a dev server can stay open while
+    // the tests run: sharing `.nuxt` meant the build wiped `dist` underneath
+    // it and it restarted mid-edit, and sharing the lock meant it could not
+    // start at all.
+    command: `NUXT_TEST_BUILD=1 NUXT_IGNORE_LOCK=1 npm run build && PORT=${PORT} node .output-test/server/index.mjs`,
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

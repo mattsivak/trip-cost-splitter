@@ -123,7 +123,7 @@ test('tolls can be foreign too, and land in the split', async ({ page }) => {
   await stubRate(page)
   await startTrip(page)
 
-  const overhead = await addPurchase(page, 'Motorway toll', '0')
+  const overhead = await addPurchase(page, 'Motorway toll', '0', false)
   await overhead.getByLabel('Paid in').selectOption('EUR')
   await overhead.getByLabel('Amount in EUR').fill('12.40')
 

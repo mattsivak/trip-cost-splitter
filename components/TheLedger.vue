@@ -385,7 +385,7 @@ function setRate(line: DriveLine | StopLine, major: number) {
     <div class="button-row">
       <button type="button" @click="add(createDrive('', ''))">Add a drive</button>
       <button type="button" class="button--quiet" @click="add(createStop())">Add a stop</button>
-      <button type="button" class="button--quiet" @click="add(createBuy('', 0, 'people'))">
+      <button type="button" class="button--quiet" @click="add(createBuy())">
         Add a purchase
       </button>
     </div>

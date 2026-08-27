@@ -131,7 +131,7 @@ async function openLinkForTripWithExtras(page: Page) {
   await page.getByLabel('Kč per km, car costs').fill('2')
   await addDrive(page, 'A', 'B', '100')
   await everyoneAboard(page)
-  await addPurchase(page, 'Motorway toll', '300')
+  await addPurchase(page, 'Motorway toll', '300', false)
   const link = await paymentLink(page)
   await page.goto(link)
   await expect(page.getByRole('link', { name: /^Pay / }).first()).toBeVisible()

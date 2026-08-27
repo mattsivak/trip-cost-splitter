@@ -26,7 +26,7 @@ async function tripWithTwo(page: Page) {
   await goTo(page, 'Route')
   await page.locator('.pricing').getByText('From the receipts').click()
   await addPurchase(page, 'The tank', '600', true)
-  await addPurchase(page, 'Motorway toll', '100')
+  await addPurchase(page, 'Motorway toll', '100', false)
 }
 
 const person = (page: Page, name: string): Locator => page.getByRole('group', { name: `${name}'s share` })
